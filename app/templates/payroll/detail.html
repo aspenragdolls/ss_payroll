@@ -6,10 +6,10 @@
 <div class="card">
   <h2>Jobs</h2>
   <table>
-    <thead><tr><th>Customer</th><th>Price</th><th>Date</th></tr></thead>
+    <thead><tr><th>Address</th><th>Price</th><th>Date</th></tr></thead>
     <tbody>
       {% for j in jobs %}
-      <tr><td>{{ j.customer_name }}</td><td>${{ j.ticket_price }}</td><td>{{ j.job_date }}</td></tr>
+      <tr><td>{{ j | job_label }}</td><td>${{ j.ticket_price }}</td><td>{{ j.job_date }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -20,7 +20,7 @@
     <thead><tr><th>Worker</th><th>Total</th><th>Labor</th><th>Commission</th></tr></thead>
     <tbody>
       {% for r in worker_results %}
-      <tr><td>{{ r.worker_id }}</td><td>${{ r.total_pay }}</td><td>${{ r.labor_total }}</td><td>${{ r.commission_total }}</td></tr>
+      <tr><td>{{ r.worker.name if r.worker else ('Worker #' ~ r.worker_id) }}</td><td>${{ r.total_pay }}</td><td>${{ r.labor_total }}</td><td>${{ r.commission_total }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

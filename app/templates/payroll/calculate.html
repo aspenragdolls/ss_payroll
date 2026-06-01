@@ -15,12 +15,12 @@
   <h2>Per Worker Totals</h2>
   <table>
     <thead>
-      <tr><th>Worker ID</th><th>Total</th><th>Labor</th><th>Commission</th><th>Hourly</th><th>Adjustments</th></tr>
+      <tr><th>Worker</th><th>Total</th><th>Labor</th><th>Commission</th><th>Hourly</th><th>Adjustments</th></tr>
     </thead>
     <tbody>
       {% for r in worker_results %}
       <tr>
-        <td>{{ r.worker_id }}</td>
+        <td>{{ r.worker.name if r.worker else ('Worker #' ~ r.worker_id) }}</td>
         <td>${{ r.total_pay }}</td>
         <td>${{ r.labor_total }}</td>
         <td>${{ r.commission_total }}</td>
@@ -42,8 +42,8 @@
     <tbody>
       {% for r in job_results %}
       <tr>
-        <td>{{ r.job_id }}</td>
-        <td>{{ r.worker_id }}</td>
+        <td>{{ r.job | job_label }}</td>
+        <td>{{ r.worker.name if r.worker else ('Worker #' ~ r.worker_id) }}</td>
         <td>${{ r.hourly_component }}</td>
         <td>${{ r.percentage_component }}</td>
         <td>${{ r.commission_component }}</td>

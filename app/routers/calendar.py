@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,8 +7,13 @@ from app.db import get_db
 from app.dependencies import get_current_user
 from app.models.calendar import CalendarConnection
 from app.models.user import User
+from app.services.credential_crypto import encrypt_credential
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+def _get_connection(db: Session, user_id: int) -> CalendarConnection | None:
+    return db.scalar(select(CalendarConnection).where(CalendarConnection.user_id == user_id))
 
 
 @router.get("/calendar")
@@ -17,26 +22,56 @@ async def calendar_settings(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    conn = db.scalar(select(CalendarConnection).where(CalendarConnection.user_id == user.id))
+    conn = _get_connection(db, user.id)
     return request.app.state.templates.TemplateResponse(
         request,
         "settings/calendar.html",
-        {"request": request, "user": user, "connection": conn},
+        {"request": request, "user": user, "connection": conn, "error": None},
     )
 
 
 @router.post("/calendar/connect")
 async def calendar_connect(
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    apple_id: str = Form(...),
+    app_password: str = Form(""),
+    calendar_name: str = Form(...),
 ):
-    conn = db.scalar(select(CalendarConnection).where(CalendarConnection.user_id == user.id))
-    if not conn:
-        conn = CalendarConnection(user_id=user.id, provider="apple", is_active=True)
-        db.add(conn)
+    apple_id = apple_id.strip()
+    calendar_name = calendar_name.strip()
+    app_password = app_password.strip()
+
+    conn = _get_connection(db, user.id)
+    has_saved_password = bool(conn and conn.access_token_encrypted)
+
+    if not apple_id or not calendar_name:
+        error = "Apple ID and calendar name are required."
+    elif not app_password and not has_saved_password:
+        error = "App-specific password is required."
     else:
-        conn.is_active = True
-        conn.provider = "apple"
+        error = None
+
+    if error:
+        return request.app.state.templates.TemplateResponse(
+            request,
+            "settings/calendar.html",
+            {"request": request, "user": user, "connection": conn, "error": error},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not conn:
+        conn = CalendarConnection(user_id=user.id, provider="apple")
+        db.add(conn)
+
+    conn.provider = "apple"
+    conn.external_account_id = apple_id
+    conn.calendar_id = calendar_name
+    conn.is_active = True
+    if app_password:
+        conn.access_token_encrypted = encrypt_credential(app_password)
+
     db.commit()
     return RedirectResponse("/settings/calendar", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -46,9 +81,11 @@ async def calendar_disconnect(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    conn = db.scalar(select(CalendarConnection).where(CalendarConnection.user_id == user.id))
+    conn = _get_connection(db, user.id)
     if conn:
         conn.is_active = False
+        conn.access_token_encrypted = None
+        conn.refresh_token_encrypted = None
         db.commit()
     return RedirectResponse("/settings/calendar", status_code=status.HTTP_303_SEE_OTHER)
 

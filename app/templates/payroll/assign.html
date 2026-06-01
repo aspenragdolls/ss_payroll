@@ -7,7 +7,7 @@
 <form method="post">
   {% for job in jobs %}
   <div class="card">
-    <h3>{{ job.customer_name or 'Job #' ~ job.id }} — ${{ job.ticket_price or '0' }}</h3>
+    <h3>{{ job | job_label }} — ${{ job.ticket_price or '0' }}</h3>
     <p><strong>Labor</strong> (profiles with labor role)</p>
     {% for w in labor_workers %}
     <div class="checkbox-row">

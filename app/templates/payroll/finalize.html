@@ -9,7 +9,7 @@
     <thead><tr><th>Worker</th><th>Total Pay</th></tr></thead>
     <tbody>
       {% for r in worker_results %}
-      <tr><td>{{ r.worker_id }}</td><td>${{ r.total_pay }}</td></tr>
+      <tr><td>{{ r.worker.name if r.worker else ('Worker #' ~ r.worker_id) }}</td><td>${{ r.total_pay }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

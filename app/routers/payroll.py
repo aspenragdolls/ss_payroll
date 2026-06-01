@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
 from app.dependencies import get_current_user
@@ -34,8 +34,27 @@ from app.services.payroll_service import (
     update_job,
 )
 from app.services.worker_service import list_workers, workers_with_role
+from app.template_utils import job_label
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
+
+
+def _enrich_warning_messages(
+    warnings: list[dict],
+    workers_by_id: dict[str, str],
+    jobs_by_id: dict[str, str],
+) -> list[dict]:
+    enriched: list[dict] = []
+    for w in warnings:
+        msg = w.get("message", "")
+        for wid in sorted(workers_by_id.keys(), key=len, reverse=True):
+            msg = msg.replace(f"worker {wid}", f"worker {workers_by_id[wid]}")
+        for jid in sorted(jobs_by_id.keys(), key=len, reverse=True):
+            label = jobs_by_id[jid]
+            msg = msg.replace(f"Job {jid}", label)
+            msg = msg.replace(f"job {jid}", label)
+        enriched.append({**w, "message": msg})
+    return enriched
 
 
 @router.get("/history")
@@ -377,16 +396,23 @@ async def calculate_page(
         db.scalars(
             select(PayrollJobResult)
             .where(PayrollJobResult.payroll_batch_id == batch_id)
+            .options(joinedload(PayrollJobResult.worker), joinedload(PayrollJobResult.job))
             .order_by(PayrollJobResult.job_id)
         )
     )
     worker_results = list(
-        db.scalars(select(PayrollResult).where(PayrollResult.payroll_batch_id == batch_id))
+        db.scalars(
+            select(PayrollResult)
+            .where(PayrollResult.payroll_batch_id == batch_id)
+            .options(joinedload(PayrollResult.worker))
+        )
     )
-    warnings = []
+    workers_by_id = {str(w.id): w.name for w in list_workers(db, user.id)}
+    jobs_by_id = {str(j.id): job_label(j) for j in get_jobs_for_batch(db, user.id, batch_id)}
+    warnings: list[dict] = []
     for wr in worker_results:
         snap = wr.calculation_snapshot_json or {}
-        warnings.extend(snap.get("warnings", []))
+        warnings.extend(_enrich_warning_messages(snap.get("warnings", []), workers_by_id, jobs_by_id))
 
     return request.app.state.templates.TemplateResponse(
         request,
@@ -439,7 +465,11 @@ async def finalize_page(
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
     worker_results = list(
-        db.scalars(select(PayrollResult).where(PayrollResult.payroll_batch_id == batch_id))
+        db.scalars(
+            select(PayrollResult)
+            .where(PayrollResult.payroll_batch_id == batch_id)
+            .options(joinedload(PayrollResult.worker))
+        )
     )
     return request.app.state.templates.TemplateResponse(
         request,
@@ -480,10 +510,18 @@ async def batch_detail(
     if not batch:
         return RedirectResponse("/payroll/history", status_code=status.HTTP_303_SEE_OTHER)
     job_results = list(
-        db.scalars(select(PayrollJobResult).where(PayrollJobResult.payroll_batch_id == batch_id))
+        db.scalars(
+            select(PayrollJobResult)
+            .where(PayrollJobResult.payroll_batch_id == batch_id)
+            .options(joinedload(PayrollJobResult.worker), joinedload(PayrollJobResult.job))
+        )
     )
     worker_results = list(
-        db.scalars(select(PayrollResult).where(PayrollResult.payroll_batch_id == batch_id))
+        db.scalars(
+            select(PayrollResult)
+            .where(PayrollResult.payroll_batch_id == batch_id)
+            .options(joinedload(PayrollResult.worker))
+        )
     )
     jobs = get_jobs_for_batch(db, user.id, batch_id)
     return request.app.state.templates.TemplateResponse(

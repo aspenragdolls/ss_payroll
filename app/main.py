@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
+from app.template_utils import job_label
 
 
 def create_app() -> FastAPI:
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
     )
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     templates = Jinja2Templates(directory="app/templates")
+    templates.env.filters["job_label"] = job_label
     app.state.templates = templates
 
     from app.routers import auth, calendar, payroll, workers

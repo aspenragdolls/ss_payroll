@@ -7,7 +7,7 @@
   <h2>Imported &amp; Manual Jobs</h2>
   {% for job in jobs %}
   <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit" style="border-bottom:1px solid #e5e7eb;padding:1rem 0">
-    <h3>Job #{{ job.id }}</h3>
+    <h3>{{ job | job_label }}</h3>
     {% if job.validation_flags %}
       {% for flag in job.validation_flags %}<div class="flag">{{ flag }}</div>{% endfor %}
     {% endif %}
