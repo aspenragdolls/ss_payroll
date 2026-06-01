@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Workers — ss_payroll{% endblock %}
+{% block content %}
+<h1>Worker Profiles</h1>
+<p><a class="btn" href="/workers/new">Add Worker</a></p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Roles</th><th>Pay</th><th>Active</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for w in workers %}
+      <tr>
+        <td>{{ w.name }}</td>
+        <td>{{ (w.roles or [])|join(', ') }}</td>
+        <td>
+          {% if w.labor_pay_type %}{{ w.labor_pay_type }}{% endif %}
+          {% if w.labor_percentage_tier %} / {{ w.labor_percentage_tier }}{% endif %}
+          {% if w.hourly_rate %} / ${{ w.hourly_rate }}/hr{% endif %}
+        </td>
+        <td>{{ 'Yes' if w.is_active else 'No' }}</td>
+        <td><a href="/workers/{{ w.id }}/edit">Edit</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">No workers yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

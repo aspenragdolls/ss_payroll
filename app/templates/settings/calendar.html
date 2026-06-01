@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Calendar — ss_payroll{% endblock %}
+{% block content %}
+<h1>Calendar Connection</h1>
+<div class="card">
+  {% if connection and connection.is_active %}
+  <p>Connected to <strong>{{ connection.provider }}</strong> (mock).</p>
+  <form method="post" action="/settings/calendar/disconnect">
+    <button class="btn btn-danger" type="submit">Disconnect</button>
+  </form>
+  {% else %}
+  <p>No calendar connected. Mock Apple Calendar integration is available for development.</p>
+  <form method="post" action="/settings/calendar/connect">
+    <button class="btn" type="submit">Connect Mock Calendar</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

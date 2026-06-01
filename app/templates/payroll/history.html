@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Payroll History — ss_payroll{% endblock %}
+{% block content %}
+<h1>Payroll History</h1>
+<div class="card">
+  <table>
+    <thead><tr><th>ID</th><th>Pay Date</th><th>Status</th><th>Finalized</th><th></th></tr></thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td>{{ b.id }}</td>
+        <td>{{ b.pay_date }}</td>
+        <td>{{ b.status }}</td>
+        <td>{{ b.finalized_at or '—' }}</td>
+        <td><a href="/payroll/{{ b.id }}/detail">View</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">No finalized payroll yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

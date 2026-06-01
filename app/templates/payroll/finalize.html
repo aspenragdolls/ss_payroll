@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Finalize — ss_payroll{% endblock %}
+{% block content %}
+<h1>Finalize Payroll</h1>
+{% include "payroll/_steps.html" %}
+<div class="card">
+  <p>Finalizing makes this payroll batch immutable.</p>
+  <table>
+    <thead><tr><th>Worker</th><th>Total Pay</th></tr></thead>
+    <tbody>
+      {% for r in worker_results %}
+      <tr><td>{{ r.worker_id }}</td><td>${{ r.total_pay }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if batch.status != 'finalized' %}
+  <form method="post" style="margin-top:1rem">
+    <button class="btn" type="submit">Finalize Payroll</button>
+  </form>
+  {% else %}
+  <p><strong>Already finalized.</strong></p>
+  {% endif %}
+</div>
+{% endblock %}

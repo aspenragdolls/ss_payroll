@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Review Jobs — ss_payroll{% endblock %}
+{% block content %}
+<h1>Review Jobs</h1>
+{% include "payroll/_steps.html" %}
+<div class="card">
+  <h2>Imported &amp; Manual Jobs</h2>
+  {% for job in jobs %}
+  <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit" style="border-bottom:1px solid #e5e7eb;padding:1rem 0">
+    <h3>Job #{{ job.id }}</h3>
+    {% if job.validation_flags %}
+      {% for flag in job.validation_flags %}<div class="flag">{{ flag }}</div>{% endfor %}
+    {% endif %}
+    <label>Customer</label>
+    <input type="text" name="customer_name" value="{{ job.customer_name or '' }}" {% if readonly %}disabled{% endif %}>
+    <label>Address</label>
+    <input type="text" name="address" value="{{ job.address or '' }}" {% if readonly %}disabled{% endif %}>
+    <label>Description</label>
+    <textarea name="service_description" rows="2" {% if readonly %}disabled{% endif %}>{{ job.service_description or '' }}</textarea>
+    <label>Ticket Price ($)</label>
+    <input type="text" name="ticket_price" value="{{ job.ticket_price or '' }}" {% if readonly %}disabled{% endif %}>
+    <label>Job Date</label>
+    <input type="date" name="job_date" value="{{ job.job_date }}" {% if readonly %}disabled{% endif %}>
+    <label>Review Status</label>
+    <select name="review_status" {% if readonly %}disabled{% endif %}>
+      <option value="pending" {% if job.review_status == 'pending' %}selected{% endif %}>Pending</option>
+      <option value="confirmed" {% if job.review_status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+    </select>
+    {% if not readonly %}<p><button class="btn" type="submit">Save Job</button></p>{% endif %}
+  </form>
+  {% else %}
+  <p>No jobs in this batch.</p>
+  {% endfor %}
+</div>
+{% if not readonly %}
+<div class="card">
+  <h2>Add Manual Job</h2>
+  <form method="post" action="/payroll/{{ batch.id }}/jobs/manual">
+    <label>Customer</label>
+    <input type="text" name="customer_name" required>
+    <label>Address</label>
+    <input type="text" name="address">
+    <label>Ticket Price ($)</label>
+    <input type="text" name="ticket_price" required>
+    <label>Job Date</label>
+    <input type="date" name="job_date" value="{{ batch.pay_date }}" required>
+    <p><button class="btn" type="submit">Add Job</button></p>
+  </form>
+</div>
+<p><a class="btn" href="/payroll/{{ batch.id }}/assign">Continue to Assignments →</a></p>
+{% endif %}
+{% endblock %}

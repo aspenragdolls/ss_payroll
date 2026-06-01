@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Daily Hours — ss_payroll{% endblock %}
+{% block content %}
+<h1>Daily Hours</h1>
+{% include "payroll/_steps.html" %}
+<p>Enter total hours per hourly worker for each day. Hours are split evenly across assigned jobs.</p>
+<form method="post" action="/payroll/{{ batch.id }}/hours/save">
+  {% for key, info in hourly_needs.items() %}
+  <div class="card">
+    <label>{{ info.worker.name }} — {{ info.date }} ({{ info.jobs }} job(s))</label>
+    {% set saved_key = info.worker.id ~ '|' ~ info.date.isoformat() %}
+    <input type="text" name="hours_{{ info.worker.id }}|{{ info.date.isoformat() }}"
+      value="{{ saved_hours.get(saved_key, '') }}" {% if readonly %}disabled{% endif %}>
+  </div>
+  {% else %}
+  <div class="card"><p>No hourly workers assigned.</p></div>
+  {% endfor %}
+  {% if not readonly %}
+  <button class="btn" type="submit">Save Hours &amp; Calculate →</button>
+  {% endif %}
+</form>
+{% if not readonly and not hourly_needs %}
+<p><a class="btn" href="/payroll/{{ batch.id }}/calculate">Skip to Calculate →</a></p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Begin Payroll — ss_payroll{% endblock %}
+{% block content %}
+<h1>Begin Payroll</h1>
+<div class="card">
+  <p>Import jobs from your calendar (mock) and review before calculating pay.</p>
+  <form method="post">
+    <label>Pay Date</label>
+    <input type="date" name="pay_date" value="{{ default_date }}" required>
+    <p style="margin-top:1rem"><button class="btn" type="submit">Begin Payroll</button></p>
+  </form>
+</div>
+{% endblock %}

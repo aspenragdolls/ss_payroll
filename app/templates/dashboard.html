@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ss_payroll{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="card">
+  <p>Welcome, {{ user.business_name }}.</p>
+  <p>
+    <a class="btn" href="/payroll/begin">Begin Payroll</a>
+    <a class="btn btn-secondary" href="/workers">Manage Workers</a>
+  </p>
+</div>
+{% endblock %}

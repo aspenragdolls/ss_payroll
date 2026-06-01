@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Assign Workers — ss_payroll{% endblock %}
+{% block content %}
+<h1>Assign Workers</h1>
+{% include "payroll/_steps.html" %}
+<p>Workers are filtered by profile roles. Roles are not changed here.</p>
+<form method="post">
+  {% for job in jobs %}
+  <div class="card">
+    <h3>{{ job.customer_name or 'Job #' ~ job.id }} — ${{ job.ticket_price or '0' }}</h3>
+    <p><strong>Labor</strong> (profiles with labor role)</p>
+    {% for w in labor_workers %}
+    <div class="checkbox-row">
+      {% set assigned = assignment_map.get(job.id, []) %}
+      {% set is_labor = assigned | selectattr('worker_id', 'equalto', w.id) | selectattr('roles') | list %}
+      <label>
+        <input type="checkbox" name="labor_{{ job.id }}" value="{{ w.id }}"
+          {% for a in assigned %}{% if a.worker_id == w.id and 'labor' in (a.roles or []) %}checked{% endif %}{% endfor %}
+          {% if readonly %}disabled{% endif %}>
+        {{ w.name }} ({{ w.labor_pay_type or 'n/a' }})
+      </label>
+    </div>
+    {% endfor %}
+    <p><strong>Sales</strong> (profiles with sales role)</p>
+    {% for w in sales_workers %}
+    <div class="checkbox-row">
+      <label>
+        <input type="checkbox" name="sales_{{ job.id }}" value="{{ w.id }}"
+          {% for a in assignment_map.get(job.id, []) %}{% if a.worker_id == w.id and 'sales' in (a.roles or []) %}checked{% endif %}{% endfor %}
+          {% if readonly %}disabled{% endif %}>
+        {{ w.name }}
+      </label>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% if not readonly %}
+  <button class="btn" type="submit">Save &amp; Continue to Hours →</button>
+  {% endif %}
+</form>
+{% endblock %}

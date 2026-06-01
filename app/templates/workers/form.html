@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if worker %}Edit{% else %}New{% endif %} Worker — ss_payroll{% endblock %}
+{% block content %}
+<h1>{% if worker %}Edit Worker{% else %}New Worker{% endif %}</h1>
+<div class="card">
+  <form method="post">
+    <label>Name</label>
+    <input type="text" name="name" value="{{ worker.name if worker else '' }}" required>
+
+    <p><strong>Roles</strong> (configured here only — not during payroll)</p>
+    <div class="checkbox-row">
+      <label><input type="checkbox" name="role_labor" value="on" {% if worker and 'labor' in (worker.roles or []) %}checked{% endif %}> Labor</label>
+      <label><input type="checkbox" name="role_sales" value="on" {% if worker and 'sales' in (worker.roles or []) %}checked{% endif %}> Sales</label>
+    </div>
+
+    <label>Labor Pay Type</label>
+    <select name="labor_pay_type">
+      <option value="">—</option>
+      <option value="hourly" {% if worker and worker.labor_pay_type == 'hourly' %}selected{% endif %}>Hourly</option>
+      <option value="percentage" {% if worker and worker.labor_pay_type == 'percentage' %}selected{% endif %}>Percentage</option>
+    </select>
+
+    <label>Percentage Tier</label>
+    <select name="labor_percentage_tier">
+      <option value="">—</option>
+      <option value="tier_1" {% if worker and worker.labor_percentage_tier == 'tier_1' %}selected{% endif %}>Tier 1 (1.5 weight)</option>
+      <option value="tier_2" {% if worker and worker.labor_percentage_tier == 'tier_2' %}selected{% endif %}>Tier 2 (1.0 weight)</option>
+    </select>
+
+    <label>Hourly Rate ($)</label>
+    <input type="text" name="hourly_rate" value="{{ worker.hourly_rate if worker and worker.hourly_rate else '' }}">
+
+    <label>Notes</label>
+    <textarea name="notes" rows="3">{{ worker.notes if worker and worker.notes else '' }}</textarea>
+
+    <div class="checkbox-row">
+      <label><input type="checkbox" name="is_active" value="on" {% if not worker or worker.is_active %}checked{% endif %}> Active</label>
+    </div>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Save</button>
+      <a class="btn btn-secondary" href="/workers">Cancel</a>
+    </p>
+  </form>
+</div>
+{% endblock %}

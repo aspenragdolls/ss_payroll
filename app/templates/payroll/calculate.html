@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Calculate — ss_payroll{% endblock %}
+{% block content %}
+<h1>Payroll Calculation</h1>
+{% include "payroll/_steps.html" %}
+{% if not readonly %}
+<form method="post" action="/payroll/{{ batch.id }}/calculate" style="margin-bottom:1rem">
+  <button class="btn" type="submit">Recalculate</button>
+</form>
+{% endif %}
+{% for w in warnings %}
+<div class="warning">{{ w.message or w.code }}</div>
+{% endfor %}
+<div class="card">
+  <h2>Per Worker Totals</h2>
+  <table>
+    <thead>
+      <tr><th>Worker ID</th><th>Total</th><th>Labor</th><th>Commission</th><th>Hourly</th><th>Adjustments</th></tr>
+    </thead>
+    <tbody>
+      {% for r in worker_results %}
+      <tr>
+        <td>{{ r.worker_id }}</td>
+        <td>${{ r.total_pay }}</td>
+        <td>${{ r.labor_total }}</td>
+        <td>${{ r.commission_total }}</td>
+        <td>${{ r.hourly_total }}</td>
+        <td>${{ r.adjustment_total }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No results yet — click Recalculate.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="card">
+  <h2>Per Job Breakdown</h2>
+  <table>
+    <thead>
+      <tr><th>Job</th><th>Worker</th><th>Hourly</th><th>Percentage</th><th>Commission</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      {% for r in job_results %}
+      <tr>
+        <td>{{ r.job_id }}</td>
+        <td>{{ r.worker_id }}</td>
+        <td>${{ r.hourly_component }}</td>
+        <td>${{ r.percentage_component }}</td>
+        <td>${{ r.commission_component }}</td>
+        <td>${{ r.final_worker_job_pay }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if not readonly %}
+<p><a class="btn" href="/payroll/{{ batch.id }}/finalize">Continue to Finalize →</a></p>
+{% endif %}
+{% endblock %}

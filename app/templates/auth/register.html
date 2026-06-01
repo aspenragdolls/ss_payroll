@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Register — ss_payroll{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px">
+  <h1>Register</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>Business Name</label>
+    <input type="text" name="business_name" required>
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Password</label>
+    <input type="password" name="password" required minlength="8">
+    <label>Timezone</label>
+    <input type="text" name="timezone" value="America/New_York">
+    <p style="margin-top:1rem"><button class="btn" type="submit">Create Account</button></p>
+  </form>
+  <p><a href="/auth/login">Already have an account?</a></p>
+</div>
+{% endblock %}

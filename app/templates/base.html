@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ss_payroll{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+  {% if user %}
+  <header>
+    <div><strong>{{ user.business_name }}</strong> — ss_payroll</div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/workers">Workers</a>
+      <a href="/payroll/begin">Payroll</a>
+      <a href="/payroll/history">History</a>
+      <a href="/settings/calendar">Calendar</a>
+      <a href="/settings/accounting">Accounting</a>
+      <form action="/auth/logout" method="post" style="display:inline">
+        <button type="submit" class="btn btn-secondary" style="margin-left:1rem">Logout</button>
+      </form>
+    </nav>
+  </header>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
