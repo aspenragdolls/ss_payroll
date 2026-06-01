@@ -1,47 +1,50 @@
-from datetime import date, datetime, timedelta
-from typing import Protocol
+from datetime import date
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.calendar import CalendarConnection
+from app.services.apple_calendar import CalendarFetchError, fetch_apple_calendar_events
+from app.services.credential_crypto import decrypt_credential
 from app.services.schemas import RawCalendarEvent
 
 
-class CalendarProvider(Protocol):
-    async def fetch_raw_events(
-        self, user_id: int, start: date, end: date
-    ) -> list[RawCalendarEvent]: ...
+def get_active_connection(db: Session, user_id: int) -> CalendarConnection | None:
+    conn = db.scalar(
+        select(CalendarConnection).where(
+            CalendarConnection.user_id == user_id,
+            CalendarConnection.is_active.is_(True),
+        )
+    )
+    if not conn or not conn.access_token_encrypted:
+        return None
+    if not conn.external_account_id or not conn.calendar_id:
+        return None
+    return conn
 
 
-class MockCalendarProvider:
-    async def fetch_raw_events(
-        self, user_id: int, start: date, end: date
-    ) -> list[RawCalendarEvent]:
-        base = datetime.combine(start, datetime.min.time())
-        return [
-            RawCalendarEvent(
-                event_id=f"mock-{user_id}-1",
-                title="Smith Residence - Window Cleaning",
-                description="Full exterior window clean. Ticket: $450. Contact: John Smith",
-                location="123 Oak St, Springfield",
-                start=base + timedelta(hours=9),
-                end=base + timedelta(hours=11),
-                raw_text=(
-                    "Smith Residence - Window Cleaning\n"
-                    "123 Oak St, Springfield\n"
-                    "Full exterior window clean. Ticket: $450"
-                ),
-            ),
-            RawCalendarEvent(
-                event_id=f"mock-{user_id}-2",
-                title="Johnson Office Building",
-                description="Commercial windows, 2nd floor. Price $800",
-                location="456 Main Ave",
-                start=base + timedelta(hours=13),
-                end=base + timedelta(hours=16),
-                raw_text=(
-                    "Johnson Office Building\n456 Main Ave\nCommercial windows $800"
-                ),
-            ),
-        ]
+def is_calendar_connected(db: Session, user_id: int) -> bool:
+    return get_active_connection(db, user_id) is not None
 
 
-def get_calendar_provider() -> CalendarProvider:
-    return MockCalendarProvider()
+async def fetch_events_for_user(
+    db: Session,
+    user_id: int,
+    start: date,
+    end: date,
+) -> list[RawCalendarEvent]:
+    conn = get_active_connection(db, user_id)
+    if not conn:
+        return []
+
+    password = decrypt_credential(conn.access_token_encrypted)
+    return await fetch_apple_calendar_events(
+        conn.external_account_id,
+        password,
+        conn.calendar_id,
+        start,
+        end,
+    )
+
+
+__all__ = ["CalendarFetchError", "fetch_events_for_user", "get_active_connection", "is_calendar_connected"]

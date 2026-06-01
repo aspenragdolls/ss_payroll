@@ -3,8 +3,11 @@
 {% block content %}
 <h1>Review Jobs</h1>
 {% include "payroll/_steps.html" %}
+{% if import_error %}
+<p class="error">{{ import_error }}</p>
+{% endif %}
 <div class="card">
-  <h2>Imported &amp; Manual Jobs</h2>
+  <h2>{% if calendar_connected %}Imported &amp; Manual Jobs{% else %}Jobs{% endif %}</h2>
   {% for job in jobs %}
   <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit" style="border-bottom:1px solid #e5e7eb;padding:1rem 0">
     <h3>{{ job | job_label }}</h3>
@@ -29,7 +32,11 @@
     {% if not readonly %}<p><button class="btn" type="submit">Save Job</button></p>{% endif %}
   </form>
   {% else %}
-  <p>No jobs in this batch.</p>
+  {% if calendar_connected %}
+  <p>No calendar events were found for this date. Add jobs manually below.</p>
+  {% else %}
+  <p>No jobs yet. Add job details manually below.</p>
+  {% endif %}
   {% endfor %}
 </div>
 {% if not readonly %}

@@ -8,7 +8,7 @@ Python payroll and accounting web app for window cleaning businesses.
 - Worker profiles with **labor** and **sales** roles (configured in profile management only)
 - Mixed hourly/percentage pay with **daily hours** split across jobs
 - 20% commission pool (defaults to owner when no salesman assigned)
-- Mock calendar import + OpenRouter AI job parsing (with local fallback)
+- Apple Calendar import + OpenRouter AI job parsing (with local fallback)
 - Immutable finalized payroll records with calculation snapshots
 
 ## Stack
@@ -60,8 +60,8 @@ Visit `http://127.0.0.1:8000` and register your business account.
 ## Payroll flow
 
 1. Manage worker profiles (`/workers`) — set labor/sales roles and pay defaults
-2. Connect mock calendar (`/settings/calendar`)
-3. Begin payroll → import jobs → review drafts
+2. Connect Apple calendar (`/settings/calendar`)
+3. Begin payroll → import jobs from the selected date (or add manually) → review drafts
 4. Assign laborers and salesmen per job (filtered by profile roles)
 5. Enter total daily hours for hourly workers
 6. Calculate → review warnings → finalize

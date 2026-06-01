@@ -3,7 +3,11 @@
 {% block content %}
 <h1>Begin Payroll</h1>
 <div class="card">
-  <p>Import jobs from your calendar (mock) and review before calculating pay.</p>
+  {% if calendar_connected %}
+  <p>Jobs for the selected date will be imported from your connected Apple calendar. Review and edit them on the next step.</p>
+  {% else %}
+  <p>No calendar is connected. You can add job details manually on the next step, or <a href="/settings/calendar">connect your Apple calendar</a> to import jobs automatically.</p>
+  {% endif %}
   <form method="post">
     <label>Pay Date</label>
     <input type="date" name="pay_date" value="{{ default_date }}" required>

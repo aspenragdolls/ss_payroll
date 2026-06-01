@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
@@ -13,7 +14,7 @@ from app.dependencies import get_current_user
 from app.domain.enums import PayType, PayrollStatus, Role
 from app.models.payroll import PayrollBatch, PayrollJobResult, PayrollResult
 from app.models.user import User
-from app.services.calendar_service import get_calendar_provider
+from app.services.calendar_service import CalendarFetchError, fetch_events_for_user, is_calendar_connected
 from app.services.job_validation import validate_draft_job
 from app.services.openrouter_job_parser import parse_calendar_event, safe_decimal
 from app.services.payroll_service import (
@@ -72,11 +73,20 @@ async def payroll_history(
 
 
 @router.get("/begin")
-async def begin_payroll_page(request: Request, user: User = Depends(get_current_user)):
+async def begin_payroll_page(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     return request.app.state.templates.TemplateResponse(
         request,
         "payroll/begin.html",
-        {"request": request, "user": user, "default_date": date.today().isoformat()},
+        {
+            "request": request,
+            "user": user,
+            "default_date": date.today().isoformat(),
+            "calendar_connected": is_calendar_connected(db, user.id),
+        },
     )
 
 
@@ -88,9 +98,13 @@ async def begin_payroll(
     pay_date: str = Form(...),
 ):
     batch = create_batch(db, user.id, pay_date=date.fromisoformat(pay_date))
-    provider = get_calendar_provider()
     start = date.fromisoformat(pay_date)
-    events = await provider.fetch_raw_events(user.id, start, start + timedelta(days=1))
+    import_error: str | None = None
+    try:
+        events = await fetch_events_for_user(db, user.id, start, start + timedelta(days=1))
+    except CalendarFetchError as exc:
+        events = []
+        import_error = str(exc)
 
     for event in events:
         draft = await parse_calendar_event(event)
@@ -108,7 +122,10 @@ async def begin_payroll(
             validation_flags=flags,
         )
 
-    return RedirectResponse(f"/payroll/{batch.id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
+    redirect_url = f"/payroll/{batch.id}/jobs"
+    if import_error:
+        redirect_url = f"{redirect_url}?import_error={quote(import_error)}"
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/{batch_id}/jobs")
@@ -117,6 +134,7 @@ async def review_jobs(
     batch_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    import_error: str | None = None,
 ):
     batch = get_batch(db, user.id, batch_id)
     if not batch:
@@ -131,6 +149,8 @@ async def review_jobs(
             "batch": batch,
             "jobs": jobs,
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
+            "calendar_connected": is_calendar_connected(db, user.id),
+            "import_error": import_error,
         },
     )
 
