@@ -68,6 +68,7 @@ class PayrollJobResult(Base):
     percentage_component: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     commission_component: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     adjustment_component: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    tips_component: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     final_worker_job_pay: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     calculation_snapshot_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

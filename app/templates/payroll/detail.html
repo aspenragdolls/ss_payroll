@@ -6,10 +6,10 @@
 <div class="card">
   <h2>Jobs</h2>
   <table>
-    <thead><tr><th>Address</th><th>Price</th><th>Date</th></tr></thead>
+    <thead><tr><th>Address</th><th>Price</th><th>Tips</th><th>Date</th></tr></thead>
     <tbody>
       {% for j in jobs %}
-      <tr><td>{{ j | job_label }}</td><td>${{ j.ticket_price }}</td><td>{{ j.job_date }}</td></tr>
+      <tr><td>{{ j | job_label }}</td><td>${{ j.ticket_price }}</td><td>${{ j.tips or '0' }}</td><td>{{ j.job_date }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

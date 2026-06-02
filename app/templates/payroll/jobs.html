@@ -22,6 +22,8 @@
     <textarea name="service_description" rows="2" {% if readonly %}disabled{% endif %}>{{ job.service_description or '' }}</textarea>
     <label>Ticket Price ($)</label>
     <input type="text" name="ticket_price" value="{{ job.ticket_price or '' }}" {% if readonly %}disabled{% endif %}>
+    <label>Tips ($)</label>
+    <input type="text" name="tips" value="{{ job.tips or '' }}" {% if readonly %}disabled{% endif %}>
     <label>Job Date</label>
     <input type="date" name="job_date" value="{{ job.job_date }}" {% if readonly %}disabled{% endif %}>
     <label>Review Status</label>
@@ -49,6 +51,8 @@
     <input type="text" name="address">
     <label>Ticket Price ($)</label>
     <input type="text" name="ticket_price" required>
+    <label>Tips ($)</label>
+    <input type="text" name="tips" value="">
     <label>Job Date</label>
     <input type="date" name="job_date" value="{{ batch.pay_date }}" required>
     <p><button class="btn" type="submit">Add Job</button></p>

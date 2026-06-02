@@ -10,6 +10,7 @@ class CalcJob:
     job_id: str
     ticket_price: Decimal
     job_date: date
+    tips: Decimal = Decimal("0")
 
 
 @dataclass
@@ -41,6 +42,7 @@ class CalcJobWorkerResult:
     percentage_component: Decimal
     commission_component: Decimal
     adjustment_component: Decimal
+    tips_component: Decimal
     final_worker_job_pay: Decimal
     hours_assigned: Decimal = Decimal("0")
 
@@ -53,6 +55,7 @@ class CalcWorkerTotal:
     commission_total: Decimal
     hourly_total: Decimal
     percentage_total: Decimal
+    tips_total: Decimal
     adjustment_total: Decimal
 
 

@@ -76,6 +76,7 @@ def create_job_from_draft(
     job_date: date | None,
     source_text: str | None,
     validation_flags: list[str] | None,
+    tips: Decimal | None = None,
 ) -> Job:
     job = Job(
         user_id=user_id,
@@ -84,6 +85,7 @@ def create_job_from_draft(
         address=address,
         service_description=service_description,
         ticket_price=ticket_price,
+        tips=tips,
         job_date=job_date,
         source_text=source_text,
         validation_flags=validation_flags,
@@ -197,6 +199,7 @@ def build_calc_input(
             job_id=str(j.id),
             ticket_price=j.ticket_price or Decimal("0"),
             job_date=j.job_date or date.today(),
+            tips=j.tips or Decimal("0"),
         )
         for j in jobs
     ]
@@ -256,6 +259,7 @@ def run_calculation(
                 percentage_component=jr.percentage_component,
                 commission_component=jr.commission_component,
                 adjustment_component=jr.adjustment_component,
+                tips_component=jr.tips_component,
                 final_worker_job_pay=jr.final_worker_job_pay,
                 calculation_snapshot_json={"hours_assigned": str(jr.hours_assigned)},
             )
@@ -273,6 +277,7 @@ def run_calculation(
                 adjustment_total=wt.adjustment_total,
                 calculation_snapshot_json={
                     "percentage_total": str(wt.percentage_total),
+                    "tips_total": str(wt.tips_total),
                     "warnings": [
                         {"code": w.code, "message": w.message, "job_id": w.job_id}
                         for w in result.warnings

@@ -20,6 +20,7 @@ class Job(Base):
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
     service_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     ticket_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tips: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     job_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_status: Mapped[str] = mapped_column(String(32), default="pending")

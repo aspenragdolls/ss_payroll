@@ -15,7 +15,7 @@
   <h2>Per Worker Totals</h2>
   <table>
     <thead>
-      <tr><th>Worker</th><th>Total</th><th>Labor</th><th>Commission</th><th>Hourly</th><th>Adjustments</th></tr>
+      <tr><th>Worker</th><th>Total</th><th>Labor</th><th>Commission</th><th>Hourly</th><th>Tips</th><th>Adjustments</th></tr>
     </thead>
     <tbody>
       {% for r in worker_results %}
@@ -25,10 +25,11 @@
         <td>${{ r.labor_total }}</td>
         <td>${{ r.commission_total }}</td>
         <td>${{ r.hourly_total }}</td>
+        <td>${{ (r.calculation_snapshot_json or {}).get('tips_total', '0') }}</td>
         <td>${{ r.adjustment_total }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6">No results yet — click Recalculate.</td></tr>
+      <tr><td colspan="7">No results yet — click Recalculate.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -37,7 +38,7 @@
   <h2>Per Job Breakdown</h2>
   <table>
     <thead>
-      <tr><th>Job</th><th>Worker</th><th>Hourly</th><th>Percentage</th><th>Commission</th><th>Total</th></tr>
+      <tr><th>Job</th><th>Worker</th><th>Hourly</th><th>Percentage</th><th>Tips</th><th>Commission</th><th>Total</th></tr>
     </thead>
     <tbody>
       {% for r in job_results %}
@@ -46,6 +47,7 @@
         <td>{{ r.worker.name if r.worker else ('Worker #' ~ r.worker_id) }}</td>
         <td>${{ r.hourly_component }}</td>
         <td>${{ r.percentage_component }}</td>
+        <td>${{ r.tips_component }}</td>
         <td>${{ r.commission_component }}</td>
         <td>${{ r.final_worker_job_pay }}</td>
       </tr>

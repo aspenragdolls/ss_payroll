@@ -165,6 +165,7 @@ async def edit_job(
     address: str = Form(""),
     service_description: str = Form(""),
     ticket_price: str = Form(""),
+    tips: str = Form(""),
     job_date: str = Form(""),
     review_status: str = Form("pending"),
 ):
@@ -184,6 +185,7 @@ async def edit_job(
         address=address or None,
         service_description=service_description or None,
         ticket_price=safe_decimal(ticket_price),
+        tips=safe_decimal(tips),
         job_date=date.fromisoformat(job_date) if job_date else None,
         review_status=review_status,
     )
@@ -198,6 +200,7 @@ async def add_manual_job(
     customer_name: str = Form(...),
     address: str = Form(""),
     ticket_price: str = Form(...),
+    tips: str = Form(""),
     job_date: str = Form(...),
 ):
     batch = get_batch(db, user.id, batch_id)
@@ -216,6 +219,7 @@ async def add_manual_job(
         address=address or None,
         service_description="Manual entry",
         ticket_price=safe_decimal(ticket_price),
+        tips=safe_decimal(tips),
         job_date=date.fromisoformat(job_date),
         source_text="Manual entry",
         validation_flags=[],

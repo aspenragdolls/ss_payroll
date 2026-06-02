@@ -6,8 +6,13 @@ from app.domain.payroll_calculator import calculate
 from app.domain.schemas import CalcAssignment, CalcInput, CalcJob
 
 
-def _job(job_id: str, price: str, day: str = "2025-05-01") -> CalcJob:
-    return CalcJob(job_id=job_id, ticket_price=Decimal(price), job_date=date.fromisoformat(day))
+def _job(job_id: str, price: str, day: str = "2025-05-01", tips: str = "0") -> CalcJob:
+    return CalcJob(
+        job_id=job_id,
+        ticket_price=Decimal(price),
+        job_date=date.fromisoformat(day),
+        tips=Decimal(tips),
+    )
 
 
 def _assign(
@@ -39,6 +44,22 @@ def _job_result(result, job_id: str, worker_id: str):
     return next(
         r for r in result.job_results if r.job_id == job_id and r.worker_id == worker_id
     )
+
+
+def test_labor_pool_is_sixty_percent_of_ticket():
+    """Labor pool must be 60% of ticket price, not 80%."""
+    result = calculate(
+        CalcInput(
+            jobs=[_job("j1", "500")],
+            assignments=[
+                _assign("j1", "w1", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+            ],
+            daily_hours={},
+        )
+    )
+    jr = _job_result(result, "j1", "w1")
+    assert jr.labor_pool == Decimal("300.00")
+    assert jr.percentage_component == Decimal("300.00")
 
 
 def test_commission_only_no_labor_workers():
@@ -241,6 +262,64 @@ def test_tier_distribution_with_mixed_pay():
     assert t1.percentage_total == Decimal("108.00")
     assert t2.percentage_total == Decimal("72.00")
     assert t1.percentage_total + t2.percentage_total + hourly.hourly_total == Decimal("300.00")
+
+
+def test_tips_split_evenly_among_labor_workers():
+    result = calculate(
+        CalcInput(
+            jobs=[_job("j1", "500", tips="30")],
+            assignments=[
+                _assign("j1", "w1", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+                _assign("j1", "w2", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+            ],
+            daily_hours={},
+        )
+    )
+    w1 = _job_result(result, "j1", "w1")
+    w2 = _job_result(result, "j1", "w2")
+    assert w1.tips_component == Decimal("15.00")
+    assert w2.tips_component == Decimal("15.00")
+    assert w1.final_worker_job_pay == Decimal("165.00")  # 150 pct + 15 tips
+    t1 = _worker_total(result, "w1")
+    t2 = _worker_total(result, "w2")
+    assert t1.tips_total == Decimal("15.00")
+    assert t2.tips_total == Decimal("15.00")
+    assert t1.labor_total == Decimal("165.00")
+
+
+def test_tips_not_given_to_sales_only():
+    result = calculate(
+        CalcInput(
+            jobs=[_job("j1", "300", tips="20")],
+            assignments=[
+                _assign("j1", "labor", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+                CalcAssignment(job_id="j1", worker_id="sales", roles={Role.SALES}),
+            ],
+            daily_hours={},
+        )
+    )
+    labor = _job_result(result, "j1", "labor")
+    sales = _job_result(result, "j1", "sales")
+    assert labor.tips_component == Decimal("20.00")
+    assert sales.tips_component == Decimal("0")
+
+
+def test_tips_rounding_remainder_on_last_worker():
+    result = calculate(
+        CalcInput(
+            jobs=[_job("j1", "100", tips="10")],
+            assignments=[
+                _assign("j1", "w1", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+                _assign("j1", "w2", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+                _assign("j1", "w3", pay_type=PayType.PERCENTAGE, tier=Tier.TIER_1),
+            ],
+            daily_hours={},
+        )
+    )
+    tips = sum(
+        _job_result(result, "j1", w).tips_component for w in ("w1", "w2", "w3")
+    )
+    assert tips == Decimal("10.00")
 
 
 def test_multiple_salesmen_split_commission():

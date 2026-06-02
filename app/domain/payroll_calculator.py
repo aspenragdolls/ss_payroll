@@ -23,6 +23,22 @@ def _money(value: Decimal) -> Decimal:
     return value.quantize(CENTS, rounding=ROUND_HALF_UP)
 
 
+def _split_evenly(amount: Decimal, worker_ids: list[str]) -> dict[str, Decimal]:
+    if not worker_ids or amount <= 0:
+        return {}
+    per_worker = _money(amount / Decimal(len(worker_ids)))
+    payments: dict[str, Decimal] = {}
+    allocated = Decimal("0")
+    for i, worker_id in enumerate(worker_ids):
+        if i == len(worker_ids) - 1:
+            pay = _money(amount - allocated)
+        else:
+            pay = per_worker
+            allocated += pay
+        payments[worker_id] = pay
+    return payments
+
+
 def _split_by_weight(amount: Decimal, items: list[tuple[str, Decimal]]) -> dict[str, Decimal]:
     if not items:
         return {}
@@ -99,6 +115,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
             "commission_total": Decimal("0"),
             "hourly_total": Decimal("0"),
             "percentage_total": Decimal("0"),
+            "tips_total": Decimal("0"),
             "adjustment_total": Decimal("0"),
         }
     )
@@ -186,6 +203,18 @@ def calculate(calc_input: CalcInput) -> CalcResult:
 
         percentage_payments = _split_by_weight(remaining_labor, percentage_workers)
 
+        tips_amount = _money(job.tips)
+        labor_worker_ids = [a.worker_id for a in labor_assignments]
+        tips_payments = _split_evenly(tips_amount, labor_worker_ids)
+        if tips_amount > 0 and not labor_assignments:
+            warnings.append(
+                CalcWarning(
+                    code="no_labor_for_tips",
+                    message=f"Tips on job {job.job_id} but no labor workers to split them.",
+                    job_id=job.job_id,
+                )
+            )
+
         commission_payments: dict[str, Decimal] = {}
         if sales_assignments:
             per_sales = _money(commission_pool / Decimal(len(sales_assignments)))
@@ -215,6 +244,11 @@ def calculate(calc_input: CalcInput) -> CalcResult:
             hourly = hourly_payments.get(worker_id, Decimal("0"))
             percentage = percentage_payments.get(worker_id, Decimal("0"))
             commission = commission_payments.get(worker_id, Decimal("0"))
+            tips = (
+                tips_payments.get(worker_id, Decimal("0"))
+                if Role.LABOR in assignment.roles
+                else Decimal("0")
+            )
             adjustment = _money(assignment.adjustment)
             hours_assigned = Decimal("0")
 
@@ -223,8 +257,8 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                     (worker_id, job.job_id, job.job_date), Decimal("0")
                 )
 
-            labor_component = _money(hourly + percentage)
-            final_pay = _money(hourly + percentage + commission + adjustment)
+            labor_component = _money(hourly + percentage + tips)
+            final_pay = _money(hourly + percentage + commission + adjustment + tips)
 
             job_results.append(
                 CalcJobWorkerResult(
@@ -236,6 +270,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                     percentage_component=percentage,
                     commission_component=commission,
                     adjustment_component=adjustment,
+                    tips_component=tips,
                     final_worker_job_pay=final_pay,
                     hours_assigned=hours_assigned,
                 )
@@ -245,6 +280,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
             per_worker_totals[worker_id]["hourly_total"] += hourly
             per_worker_totals[worker_id]["percentage_total"] += percentage
             per_worker_totals[worker_id]["commission_total"] += commission
+            per_worker_totals[worker_id]["tips_total"] += tips
             per_worker_totals[worker_id]["adjustment_total"] += adjustment
             per_worker_totals[worker_id]["labor_total"] += labor_component
             per_worker_totals[worker_id]["total_pay"] += final_pay
@@ -263,6 +299,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                     percentage_component=Decimal("0"),
                     commission_component=commission,
                     adjustment_component=Decimal("0"),
+                    tips_component=Decimal("0"),
                     final_worker_job_pay=commission,
                     hours_assigned=Decimal("0"),
                 )
@@ -278,6 +315,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
             commission_total=_money(totals["commission_total"]),
             hourly_total=_money(totals["hourly_total"]),
             percentage_total=_money(totals["percentage_total"]),
+            tips_total=_money(totals["tips_total"]),
             adjustment_total=_money(totals["adjustment_total"]),
         )
         for worker_id, totals in sorted(per_worker_totals.items())
@@ -288,6 +326,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
             {
                 "job_id": j.job_id,
                 "ticket_price": str(j.ticket_price),
+                "tips": str(j.tips),
                 "job_date": j.job_date.isoformat(),
             }
             for j in jobs
@@ -318,6 +357,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                 "percentage_component": str(r.percentage_component),
                 "commission_component": str(r.commission_component),
                 "adjustment_component": str(r.adjustment_component),
+                "tips_component": str(r.tips_component),
                 "hours_assigned": str(r.hours_assigned),
             }
             for r in job_results
