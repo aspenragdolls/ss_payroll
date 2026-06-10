@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Payroll Setup — ss_payroll{% endblock %}
+{% block content %}
+<h1>Payroll Setup</h1>
+{% if saved %}
+<p class="success">Payroll setup saved successfully.</p>
+{% endif %}
+<p style="color:#64748b; max-width:640px">
+  Configure how each job's ticket price is split between labor, commission, and your business.
+  Percentage pay tiers control how the labor pool is shared among percentage workers.
+</p>
+
+{% if errors %}
+<div class="error">
+  <ul style="margin:.25rem 0; padding-left:1.25rem">
+    {% for error in errors %}
+    <li>{{ error }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Ticket Breakdown</h2>
+  <p style="color:#64748b; font-size:.95rem">These three percentages must add up to exactly 100%.</p>
+
+  <form method="post" action="/settings/payroll/review" id="payroll-config-form">
+    <div class="config-grid">
+      <div>
+        <label for="labor_pool_percent">Labor Pool (%)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          id="labor_pool_percent"
+          name="labor_pool_percent"
+          value="{{ config.labor_pool_percent }}"
+          required
+        >
+        <p class="field-hint">Paid to hourly and percentage workers, plus tips.</p>
+      </div>
+
+      <div>
+        <label for="commission_pool_percent">Commission Pool (%)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          id="commission_pool_percent"
+          name="commission_pool_percent"
+          value="{{ config.commission_pool_percent }}"
+          required
+        >
+        <p class="field-hint">Split among sales workers on each job.</p>
+      </div>
+
+      <div>
+        <label for="business_retained_percent">Business Retained (%)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          id="business_retained_percent"
+          name="business_retained_percent"
+          value="{{ config.business_retained_percent }}"
+          required
+        >
+        <p class="field-hint">Stays with the business (not paid out in payroll).</p>
+      </div>
+    </div>
+
+    <p id="percent-total" class="percent-total {% if config.percent_total != 100 %}percent-total-bad{% else %}percent-total-ok{% endif %}">
+      Total: <strong id="percent-total-value">{{ config.percent_total }}%</strong>
+      <span id="percent-total-status">{% if config.percent_total == 100 %} ✓{% else %} — must equal 100%{% endif %}</span>
+    </p>
+
+    <h2 style="margin-top:2rem">Percentage Pay Tiers</h2>
+    <p style="color:#64748b; font-size:.95rem">
+      Relative weights for splitting the labor pool among percentage workers.
+      A worker on Tier 1 earns proportionally more than Tier 2.
+    </p>
+
+    <div class="config-grid">
+      <div>
+        <label for="tier_1_weight">Tier 1 Weight</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          id="tier_1_weight"
+          name="tier_1_weight"
+          value="{{ config.tier_1_weight }}"
+          required
+        >
+      </div>
+
+      <div>
+        <label for="tier_2_weight">Tier 2 Weight</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          id="tier_2_weight"
+          name="tier_2_weight"
+          value="{{ config.tier_2_weight }}"
+          required
+        >
+      </div>
+    </div>
+
+    <p style="margin-top:1.5rem">
+      <button class="btn" type="submit">Review Changes</button>
+    </p>
+  </form>
+</div>
+
+<script>
+(function () {
+  const fields = [
+    "labor_pool_percent",
+    "commission_pool_percent",
+    "business_retained_percent",
+  ];
+  const totalEl = document.getElementById("percent-total");
+  const totalValueEl = document.getElementById("percent-total-value");
+  const totalStatusEl = document.getElementById("percent-total-status");
+
+  function updateTotal() {
+    let total = 0;
+    for (const id of fields) {
+      const value = parseFloat(document.getElementById(id).value);
+      if (!Number.isNaN(value)) {
+        total += value;
+      }
+    }
+    const rounded = Math.round(total * 100) / 100;
+    totalValueEl.textContent = rounded + "%";
+    totalEl.classList.remove("percent-total-ok", "percent-total-bad");
+    if (rounded === 100) {
+      totalEl.classList.add("percent-total-ok");
+      totalStatusEl.textContent = " ✓";
+    } else {
+      totalEl.classList.add("percent-total-bad");
+      totalStatusEl.textContent = " — must equal 100%";
+    }
+  }
+
+  for (const id of fields) {
+    document.getElementById(id).addEventListener("input", updateTotal);
+  }
+})();
+</script>
+{% endblock %}

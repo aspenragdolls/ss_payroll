@@ -13,6 +13,7 @@ from app.domain.schemas import CalcAssignment, CalcInput, CalcJob
 from app.models.job import Job, JobWorkerAssignment
 from app.models.payroll import PayrollBatch, PayrollJobResult, PayrollResult
 from app.models.worker import Worker
+from app.services.payroll_config_service import get_payroll_rates
 
 
 def get_batch(db: Session, user_id: int, batch_id: int) -> PayrollBatch | None:
@@ -230,6 +231,7 @@ def build_calc_input(
         assignments=calc_assignments,
         daily_hours=calc_daily,
         owner_worker_id=str(owner_worker_id) if owner_worker_id else None,
+        rates=get_payroll_rates(db, user_id),
     )
 
 

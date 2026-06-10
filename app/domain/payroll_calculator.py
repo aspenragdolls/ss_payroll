@@ -14,8 +14,6 @@ from app.domain.schemas import (
     CalcWorkerTotal,
 )
 
-LABOR_POOL_RATE = Decimal("0.60")
-COMMISSION_POOL_RATE = Decimal("0.20")
 CENTS = Decimal("0.01")
 
 
@@ -107,6 +105,10 @@ def calculate(calc_input: CalcInput) -> CalcResult:
     job_results: list[CalcJobWorkerResult] = []
     jobs_lookup = _jobs_by_id(jobs)
     hours_map = _hourly_job_counts(jobs, assignments, daily_hours)
+    rates = calc_input.rates
+
+    def tier_weight(tier: Tier) -> Decimal:
+        return rates.tier_weights.get(tier.value, tier.weight)
 
     per_worker_totals: dict[str, dict[str, Decimal]] = defaultdict(
         lambda: {
@@ -134,8 +136,8 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                 )
             )
 
-        labor_pool = _money(job.ticket_price * LABOR_POOL_RATE)
-        commission_pool = _money(job.ticket_price * COMMISSION_POOL_RATE)
+        labor_pool = _money(job.ticket_price * rates.labor_pool_rate)
+        commission_pool = _money(job.ticket_price * rates.commission_pool_rate)
 
         if not labor_assignments:
             warnings.append(
@@ -199,7 +201,7 @@ def calculate(calc_input: CalcInput) -> CalcResult:
                         )
                     )
                     continue
-                percentage_workers.append((assignment.worker_id, assignment.tier.weight))
+                percentage_workers.append((assignment.worker_id, tier_weight(assignment.tier)))
 
         percentage_payments = _split_by_weight(remaining_labor, percentage_workers)
 

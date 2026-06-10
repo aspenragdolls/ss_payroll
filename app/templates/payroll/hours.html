@@ -20,6 +20,8 @@
   {% endif %}
 </form>
 {% if not readonly and not hourly_needs %}
-<p><a class="btn" href="/payroll/{{ batch.id }}/calculate">Skip to Calculate →</a></p>
+<form method="post" action="/payroll/{{ batch.id }}/calculate">
+  <button class="btn" type="submit">Continue to Calculate →</button>
+</form>
 {% endif %}
 {% endblock %}

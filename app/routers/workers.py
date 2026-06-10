@@ -8,6 +8,7 @@ from app.db import get_db
 from app.dependencies import get_current_user
 from app.domain.enums import Role
 from app.models.user import User
+from app.services.payroll_config_service import get_payroll_config
 from app.services.worker_service import (
     create_worker,
     get_worker,
@@ -33,11 +34,16 @@ async def workers_list(
 
 
 @router.get("/new")
-async def workers_new(request: Request, user: User = Depends(get_current_user)):
+async def workers_new(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    payroll_config = get_payroll_config(db, user.id)
     return request.app.state.templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"request": request, "user": user, "worker": None, "error": None},
+        {"request": request, "user": user, "worker": None, "error": None, "payroll_config": payroll_config},
     )
 
 
@@ -85,10 +91,11 @@ async def workers_edit(
     worker = get_worker(db, user.id, worker_id)
     if not worker:
         return RedirectResponse("/workers", status_code=status.HTTP_303_SEE_OTHER)
+    payroll_config = get_payroll_config(db, user.id)
     return request.app.state.templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"request": request, "user": user, "worker": worker, "error": None},
+        {"request": request, "user": user, "worker": worker, "error": None, "payroll_config": payroll_config},
     )
 
 

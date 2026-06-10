@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Confirm Payroll Setup — ss_payroll{% endblock %}
+{% block content %}
+<h1>Confirm Payroll Setup</h1>
+<p style="color:#64748b; max-width:640px">
+  Review your changes below. Payroll calculations will use these values going forward.
+</p>
+
+<div class="card">
+  <h2>Ticket Breakdown</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Setting</th>
+        <th>Current</th>
+        <th>New</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Labor Pool</td>
+        <td>{{ current.labor_pool_percent }}%</td>
+        <td><strong>{{ proposed.labor_pool_percent }}%</strong></td>
+      </tr>
+      <tr>
+        <td>Commission Pool</td>
+        <td>{{ current.commission_pool_percent }}%</td>
+        <td><strong>{{ proposed.commission_pool_percent }}%</strong></td>
+      </tr>
+      <tr>
+        <td>Business Retained</td>
+        <td>{{ current.business_retained_percent }}%</td>
+        <td><strong>{{ proposed.business_retained_percent }}%</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Total</strong></td>
+        <td>{{ current.percent_total }}%</td>
+        <td><strong>{{ proposed.percent_total }}%</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:2rem">Percentage Pay Tiers</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Current Weight</th>
+        <th>New Weight</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tier 1</td>
+        <td>{{ current.tier_1_weight }}</td>
+        <td><strong>{{ proposed.tier_1_weight }}</strong></td>
+      </tr>
+      <tr>
+        <td>Tier 2</td>
+        <td>{{ current.tier_2_weight }}</td>
+        <td><strong>{{ proposed.tier_2_weight }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form method="post" action="/settings/payroll/save" style="margin-top:1.5rem">
+    <input type="hidden" name="labor_pool_percent" value="{{ proposed.labor_pool_percent }}">
+    <input type="hidden" name="commission_pool_percent" value="{{ proposed.commission_pool_percent }}">
+    <input type="hidden" name="business_retained_percent" value="{{ proposed.business_retained_percent }}">
+    <input type="hidden" name="tier_1_weight" value="{{ proposed.tier_1_weight }}">
+    <input type="hidden" name="tier_2_weight" value="{{ proposed.tier_2_weight }}">
+
+    <button class="btn" type="submit">Confirm and Save</button>
+    <a class="btn btn-secondary" href="/settings/payroll">Go Back and Edit</a>
+  </form>
+</div>
+{% endblock %}

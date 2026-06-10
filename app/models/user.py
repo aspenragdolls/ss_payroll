@@ -27,3 +27,6 @@ class User(Base):
     accounting_records = relationship(
         "AccountingRecord", back_populates="user", cascade="all, delete-orphan"
     )
+    payroll_config = relationship(
+        "PayrollConfig", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )

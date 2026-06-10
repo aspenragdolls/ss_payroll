@@ -403,6 +403,8 @@ async def save_hours_form(
     batch.session_data_json = {"daily_hours": saved}
     db.commit()
     compute_hours_assigned(db, user.id, batch_id, daily_hours)
+    owner = get_owner_worker(db, user.id)
+    run_calculation(db, user.id, batch, daily_hours, owner.id if owner else None)
     return RedirectResponse(f"/payroll/{batch_id}/calculate", status_code=status.HTTP_303_SEE_OTHER)
 
 

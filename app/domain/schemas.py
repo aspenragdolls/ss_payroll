@@ -25,11 +25,30 @@ class CalcAssignment:
 
 
 @dataclass
+class PayrollRates:
+    labor_pool_rate: Decimal
+    commission_pool_rate: Decimal
+    tier_weights: dict[str, Decimal]
+
+
+def default_payroll_rates() -> PayrollRates:
+    return PayrollRates(
+        labor_pool_rate=Decimal("0.60"),
+        commission_pool_rate=Decimal("0.20"),
+        tier_weights={
+            Tier.TIER_1.value: Decimal("1.5"),
+            Tier.TIER_2.value: Decimal("1.0"),
+        },
+    )
+
+
+@dataclass
 class CalcInput:
     jobs: list[CalcJob]
     assignments: list[CalcAssignment]
     daily_hours: dict[tuple[str, date], Decimal]
     owner_worker_id: str | None = None
+    rates: PayrollRates = field(default_factory=default_payroll_rates)
 
 
 @dataclass
