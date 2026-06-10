@@ -21,6 +21,7 @@ class Job(Base):
     service_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     ticket_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     tips: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    is_cash: Mapped[bool] = mapped_column(Boolean, default=False)
     job_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_status: Mapped[str] = mapped_column(String(32), default="pending")

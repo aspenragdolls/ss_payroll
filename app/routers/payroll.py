@@ -168,6 +168,7 @@ async def edit_job(
     ticket_price: str = Form(""),
     tips: str = Form(""),
     job_date: str = Form(""),
+    is_cash: str | None = Form(None),
     review_status: str = Form("pending"),
 ):
     batch = get_batch(db, user.id, batch_id)
@@ -179,6 +180,7 @@ async def edit_job(
     except PermissionError:
         return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
 
+    parsed_tips = safe_decimal(tips)
     update_job(
         db,
         job,
@@ -186,8 +188,9 @@ async def edit_job(
         address=address or None,
         service_description=service_description or None,
         ticket_price=safe_decimal(ticket_price),
-        tips=safe_decimal(tips),
+        tips=parsed_tips,
         job_date=date.fromisoformat(job_date) if job_date else None,
+        is_cash=bool(is_cash),
         review_status=review_status,
     )
     return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
@@ -203,6 +206,7 @@ async def add_manual_job(
     ticket_price: str = Form(...),
     tips: str = Form(""),
     job_date: str = Form(...),
+    is_cash: str | None = Form(None),
 ):
     batch = get_batch(db, user.id, batch_id)
     if not batch:
@@ -224,6 +228,7 @@ async def add_manual_job(
         job_date=date.fromisoformat(job_date),
         source_text="Manual entry",
         validation_flags=[],
+        is_cash=bool(is_cash),
     )
     return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
 

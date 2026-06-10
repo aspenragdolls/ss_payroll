@@ -26,6 +26,12 @@
     <input type="text" name="tips" value="{{ job.tips or '' }}" {% if readonly %}disabled{% endif %}>
     <label>Job Date</label>
     <input type="date" name="job_date" value="{{ job.job_date }}" {% if readonly %}disabled{% endif %}>
+    <div class="checkbox-row">
+      <label>
+        <input type="checkbox" name="is_cash" value="1" {% if job.is_cash %}checked{% endif %} {% if readonly %}disabled{% endif %}>
+        Cash job
+      </label>
+    </div>
     <label>Review Status</label>
     <select name="review_status" {% if readonly %}disabled{% endif %}>
       <option value="pending" {% if job.review_status == 'pending' %}selected{% endif %}>Pending</option>
@@ -55,6 +61,12 @@
     <input type="text" name="tips" value="">
     <label>Job Date</label>
     <input type="date" name="job_date" value="{{ batch.pay_date }}" required>
+    <div class="checkbox-row">
+      <label>
+        <input type="checkbox" name="is_cash" value="1">
+        Cash job
+      </label>
+    </div>
     <p><button class="btn" type="submit">Add Job</button></p>
   </form>
 </div>

@@ -78,6 +78,7 @@ def create_job_from_draft(
     source_text: str | None,
     validation_flags: list[str] | None,
     tips: Decimal | None = None,
+    is_cash: bool = False,
 ) -> Job:
     job = Job(
         user_id=user_id,
@@ -87,6 +88,7 @@ def create_job_from_draft(
         service_description=service_description,
         ticket_price=ticket_price,
         tips=tips,
+        is_cash=is_cash,
         job_date=job_date,
         source_text=source_text,
         validation_flags=validation_flags,
