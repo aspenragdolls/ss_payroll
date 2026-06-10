@@ -36,8 +36,8 @@ def _find_first_href(root: ET.Element, tag_prefix: str, tag_local: str) -> str |
     return href.text
 
 
-def _propfind(client: httpx.AsyncClient, url: str, body: str, depth: str = "0") -> ET.Element:
-    response = client.request(
+async def _propfind(client: httpx.AsyncClient, url: str, body: str, depth: str = "0") -> ET.Element:
+    response = await client.request(
         "PROPFIND",
         url,
         content=body,
@@ -47,8 +47,8 @@ def _propfind(client: httpx.AsyncClient, url: str, body: str, depth: str = "0") 
     return ET.fromstring(response.content)
 
 
-def _report(client: httpx.AsyncClient, url: str, body: str) -> ET.Element:
-    response = client.request(
+async def _report(client: httpx.AsyncClient, url: str, body: str) -> ET.Element:
+    response = await client.request(
         "REPORT",
         url,
         content=body,
@@ -141,27 +141,37 @@ async def fetch_apple_calendar_events(
 
     async with httpx.AsyncClient(auth=auth, timeout=30.0, follow_redirects=True) as client:
         try:
-            principal_root = _propfind(client, ICLOUD_BASE, principal_body)
+            principal_root = await _propfind(client, ICLOUD_BASE, principal_body)
             principal_href = _find_first_href(principal_root, "D", "current-user-principal")
             if not principal_href:
                 raise CalendarFetchError("Could not locate your iCloud calendar account.")
 
             principal_url = urljoin(ICLOUD_BASE, principal_href)
-            home_root = _propfind(client, principal_url, home_body)
+            home_root = await _propfind(client, principal_url, home_body)
             home_href = _find_first_href(home_root, "C", "calendar-home-set")
             if not home_href:
                 raise CalendarFetchError("Could not locate your iCloud calendars.")
 
             home_url = urljoin(ICLOUD_BASE, home_href)
-            calendars_root = _propfind(client, home_url, list_calendars_body, depth="1")
-            calendar_href = _find_calendar_href(calendars_root, calendar_name)
-            if not calendar_href:
+            calendars_root = await _propfind(client, home_url, list_calendars_body, depth="1")
+            calendar_hrefs = _find_all_calendar_hrefs(calendars_root, calendar_name)
+            if not calendar_hrefs:
                 raise CalendarFetchError(
                     f'Calendar "{calendar_name}" was not found in your iCloud account.'
                 )
 
-            calendar_url = urljoin(ICLOUD_BASE, calendar_href)
-            events_root = _report(client, calendar_url, _calendar_query_body(start, end))
+            query_body = _calendar_query_body(start, end)
+            all_events: list[RawCalendarEvent] = []
+            seen_ids: set[str] = set()
+            for calendar_href in calendar_hrefs:
+                calendar_url = urljoin(home_url, calendar_href)
+                events_root = await _report(client, calendar_url, query_body)
+                calendar_events = _parse_calendar_report(events_root, start)
+                for event in calendar_events:
+                    if event.event_id in seen_ids:
+                        continue
+                    seen_ids.add(event.event_id)
+                    all_events.append(event)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in (401, 403):
                 raise CalendarFetchError(
@@ -171,19 +181,35 @@ async def fetch_apple_calendar_events(
         except httpx.HTTPError as exc:
             raise CalendarFetchError("Could not reach iCloud calendar service.") from exc
 
-    return _parse_calendar_report(events_root, start)
+    all_events.sort(key=lambda event: event.start)
+    return all_events
+
+
+def _is_calendar_collection(response: ET.Element) -> bool:
+    resourcetype = response.find(f".//{_ns_tag('D', 'resourcetype')}")
+    if resourcetype is None:
+        return True
+    return resourcetype.find(_ns_tag("C", "calendar")) is not None
 
 
 def _find_calendar_href(root: ET.Element, calendar_name: str) -> str | None:
+    hrefs = _find_all_calendar_hrefs(root, calendar_name)
+    return hrefs[0] if hrefs else None
+
+
+def _find_all_calendar_hrefs(root: ET.Element, calendar_name: str) -> list[str]:
     target = calendar_name.strip().casefold()
+    hrefs: list[str] = []
     for response in root.findall(f".//{_ns_tag('D', 'response')}"):
+        if not _is_calendar_collection(response):
+            continue
         displayname = response.find(f".//{_ns_tag('D', 'displayname')}")
         href = response.find(f"{_ns_tag('D', 'href')}")
         if displayname is None or href is None or not displayname.text or not href.text:
             continue
         if displayname.text.strip().casefold() == target:
-            return href.text
-    return None
+            hrefs.append(href.text)
+    return hrefs
 
 
 def _parse_calendar_report(root: ET.Element, fallback_date: date) -> list[RawCalendarEvent]:

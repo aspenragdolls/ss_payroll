@@ -99,6 +99,7 @@ async def begin_payroll(
 ):
     batch = create_batch(db, user.id, pay_date=date.fromisoformat(pay_date))
     start = date.fromisoformat(pay_date)
+
     import_error: str | None = None
     try:
         events = await fetch_events_for_user(db, user.id, start, start + timedelta(days=1))
