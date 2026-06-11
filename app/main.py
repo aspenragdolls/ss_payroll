@@ -14,7 +14,7 @@ from app.template_utils import job_label
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.1.0")
+    app = FastAPI(title="ss_payroll", version="0.1.1")
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     templates = Jinja2Templates(directory="app/templates")
     templates.env.filters["job_label"] = job_label
+    templates.env.globals["static_version"] = app.version
     app.state.templates = templates
 
     from app.routers import auth, calendar, payroll, workers

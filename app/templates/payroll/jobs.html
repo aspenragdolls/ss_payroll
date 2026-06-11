@@ -20,6 +20,7 @@
       {% endif %}
     </div>
     <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit">
+    <input type="hidden" name="saved_jobs" value="{{ saved_jobs or '' }}" class="saved-jobs-field">
     {% if job.validation_flags %}
       {% for flag in job.validation_flags %}<div class="flag">{{ flag }}</div>{% endfor %}
     {% endif %}

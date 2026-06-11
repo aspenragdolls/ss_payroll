@@ -36,35 +36,23 @@
     document.querySelectorAll("button.btn[type='submit']").forEach(enhanceButton);
   }
 
-  function savedJobsStorageKey() {
-    return "button-feedback:saved-jobs:" + window.location.pathname;
+  function parseSavedJobs(raw) {
+    if (!raw) return [];
+    return raw.split(",").map(function (part) {
+      return part.trim();
+    }).filter(Boolean);
   }
 
-  function getSavedJobIds() {
-    try {
-      const raw = sessionStorage.getItem(savedJobsStorageKey());
-      return raw ? JSON.parse(raw) : [];
-    } catch (_err) {
-      return [];
-    }
+  function getSavedJobsFromPage() {
+    const field = document.querySelector("input.saved-jobs-field");
+    return field ? parseSavedJobs(field.value) : [];
   }
 
-  function setSavedJobIds(ids) {
-    sessionStorage.setItem(savedJobsStorageKey(), JSON.stringify(ids));
-  }
-
-  function addSavedJobId(jobId) {
-    const ids = getSavedJobIds();
-    if (!ids.includes(jobId)) {
-      ids.push(jobId);
-      setSavedJobIds(ids);
-    }
-  }
-
-  function removeSavedJobId(jobId) {
-    setSavedJobIds(getSavedJobIds().filter(function (id) {
-      return id !== jobId;
-    }));
+  function setSavedJobsOnPage(ids) {
+    const value = ids.join(",");
+    document.querySelectorAll("input.saved-jobs-field").forEach(function (field) {
+      field.value = value;
+    });
   }
 
   function jobIdFromEditForm(form) {
@@ -79,7 +67,7 @@
     return form && form.querySelector("button.btn[type='submit']");
   }
 
-  function applySavedJobsFromStorage() {
+  function applySavedJobButtons(jobIds) {
     const onPage = new Set();
     document
       .querySelectorAll('form[action*="/jobs/"][action*="/edit"]')
@@ -88,11 +76,11 @@
         if (jobId) onPage.add(jobId);
       });
 
-    const savedIds = getSavedJobIds().filter(function (id) {
+    const savedIds = jobIds.filter(function (id) {
       return onPage.has(id);
     });
-    if (savedIds.length !== getSavedJobIds().length) {
-      setSavedJobIds(savedIds);
+    if (savedIds.length) {
+      setSavedJobsOnPage(savedIds);
     }
 
     savedIds.forEach(function (jobId) {
@@ -110,7 +98,11 @@
     const jobId = jobIdFromEditForm(form);
     function onDirty() {
       clearButtonSaved(btn);
-      if (jobId) removeSavedJobId(jobId);
+      if (!jobId) return;
+      const nextIds = getSavedJobsFromPage().filter(function (id) {
+        return id !== jobId;
+      });
+      setSavedJobsOnPage(nextIds);
     }
     form.addEventListener("input", onDirty, true);
     form.addEventListener("change", onDirty, true);
@@ -120,12 +112,15 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get("saved") !== "1") return;
 
+    const savedJobs = params.get("saved_jobs");
     const savedJob = params.get("saved_job");
     const savedForm = params.get("saved_form");
     let targetBtn = null;
 
-    if (savedJob) {
-      addSavedJobId(savedJob);
+    if (savedJobs) {
+      applySavedJobButtons(parseSavedJobs(savedJobs));
+    } else if (savedJob) {
+      applySavedJobButtons([savedJob]);
       const form = document.querySelector(
         'form[action*="/jobs/' + savedJob + '/edit"]'
       );
@@ -177,6 +172,6 @@
     enhanceAllButtons();
     document.querySelectorAll("main form").forEach(bindFormResetOnChange);
     applySavedFromUrl();
-    applySavedJobsFromStorage();
+    applySavedJobButtons(getSavedJobsFromPage());
   });
 })();

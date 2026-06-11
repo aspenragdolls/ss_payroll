@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
@@ -188,6 +188,21 @@ async def delete_draft_session(
     return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
+def _merge_saved_jobs(saved_jobs: str, job_id: int) -> str:
+    ids = [part.strip() for part in saved_jobs.split(",") if part.strip().isdigit()]
+    job_key = str(job_id)
+    if job_key not in ids:
+        ids.append(job_key)
+    return ",".join(ids)
+
+
+def _jobs_redirect_query(*, saved_jobs: str = "") -> str:
+    params: dict[str, str] = {"saved": "1"}
+    if saved_jobs:
+        params["saved_jobs"] = saved_jobs
+    return urlencode(params)
+
+
 @router.get("/{batch_id}/jobs")
 async def review_jobs(
     request: Request,
@@ -195,6 +210,7 @@ async def review_jobs(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     import_error: str | None = None,
+    saved_jobs: str = "",
 ):
     batch = get_batch(db, user.id, batch_id)
     if not batch:
@@ -214,6 +230,7 @@ async def review_jobs(
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
             "calendar_connected": is_calendar_connected(db, user.id),
             "import_error": import_error,
+            "saved_jobs": saved_jobs,
             **_step_context(db, batch, "jobs"),
         },
     )
@@ -233,6 +250,7 @@ async def edit_job(
     job_date: str = Form(""),
     is_cash: str | None = Form(None),
     review_status: str = Form("pending"),
+    saved_jobs: str = Form(""),
 ):
     batch = get_batch(db, user.id, batch_id)
     job = get_job(db, user.id, job_id)
@@ -259,8 +277,9 @@ async def edit_job(
         is_cash=bool(is_cash),
         review_status=review_status,
     )
+    merged_saved_jobs = _merge_saved_jobs(saved_jobs, job_id)
     return RedirectResponse(
-        f"/payroll/{batch_id}/jobs?saved=1&saved_job={job_id}",
+        f"/payroll/{batch_id}/jobs?{_jobs_redirect_query(saved_jobs=merged_saved_jobs)}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
