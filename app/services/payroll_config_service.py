@@ -13,8 +13,9 @@ from app.models.payroll_config import PayrollConfig
 DEFAULT_LABOR_PERCENT = Decimal("60")
 DEFAULT_COMMISSION_PERCENT = Decimal("20")
 DEFAULT_BUSINESS_PERCENT = Decimal("20")
-DEFAULT_TIER_1_WEIGHT = Decimal("1.5")
-DEFAULT_TIER_2_WEIGHT = Decimal("1.0")
+DEFAULT_TIER_1_WEIGHT = Decimal("1.00")
+DEFAULT_TIER_2_WEIGHT = Decimal("0.825")
+DEFAULT_TIER_3_WEIGHT = Decimal("0.65")
 PERCENT_TOTAL = Decimal("100")
 
 
@@ -25,6 +26,7 @@ class PayrollConfigValues:
     business_retained_percent: Decimal
     tier_1_weight: Decimal
     tier_2_weight: Decimal
+    tier_3_weight: Decimal
 
     @property
     def percent_total(self) -> Decimal:
@@ -41,6 +43,7 @@ class PayrollConfigValues:
             tier_weights={
                 Tier.TIER_1.value: self.tier_1_weight,
                 Tier.TIER_2.value: self.tier_2_weight,
+                Tier.TIER_3.value: self.tier_3_weight,
             },
         )
 
@@ -52,6 +55,7 @@ def default_config_values() -> PayrollConfigValues:
         business_retained_percent=DEFAULT_BUSINESS_PERCENT,
         tier_1_weight=DEFAULT_TIER_1_WEIGHT,
         tier_2_weight=DEFAULT_TIER_2_WEIGHT,
+        tier_3_weight=DEFAULT_TIER_3_WEIGHT,
     )
 
 
@@ -62,6 +66,7 @@ def _from_model(config: PayrollConfig) -> PayrollConfigValues:
         business_retained_percent=config.business_retained_percent,
         tier_1_weight=config.tier_1_weight,
         tier_2_weight=config.tier_2_weight,
+        tier_3_weight=config.tier_3_weight,
     )
 
 
@@ -96,6 +101,7 @@ def parse_config_form(
     business_retained_percent: str,
     tier_1_weight: str,
     tier_2_weight: str,
+    tier_3_weight: str,
 ) -> tuple[PayrollConfigValues | None, list[str]]:
     errors: list[str] = []
     fields = [
@@ -104,6 +110,7 @@ def parse_config_form(
         ("Business retained", business_retained_percent),
         ("Tier 1 weight", tier_1_weight),
         ("Tier 2 weight", tier_2_weight),
+        ("Tier 3 weight", tier_3_weight),
     ]
     parsed: dict[str, Decimal] = {}
     for label, raw in fields:
@@ -122,6 +129,7 @@ def parse_config_form(
         business_retained_percent=parsed["Business retained"],
         tier_1_weight=parsed["Tier 1 weight"],
         tier_2_weight=parsed["Tier 2 weight"],
+        tier_3_weight=parsed["Tier 3 weight"],
     )
     errors.extend(validate_config_values(values))
     if errors:
@@ -137,7 +145,11 @@ def validate_config_values(values: PayrollConfigValues) -> list[str]:
             f"Ticket breakdown must add up to 100% (currently {total.normalize()}%). "
             "Adjust labor, commission, and business retained percentages."
         )
-    if values.tier_1_weight <= 0 or values.tier_2_weight <= 0:
+    if (
+        values.tier_1_weight <= 0
+        or values.tier_2_weight <= 0
+        or values.tier_3_weight <= 0
+    ):
         errors.append("Tier weights must be greater than zero.")
     return errors
 
@@ -153,6 +165,7 @@ def save_payroll_config(db: Session, user_id: int, values: PayrollConfigValues) 
     config.business_retained_percent = values.business_retained_percent
     config.tier_1_weight = values.tier_1_weight
     config.tier_2_weight = values.tier_2_weight
+    config.tier_3_weight = values.tier_3_weight
     db.commit()
     db.refresh(config)
     return config

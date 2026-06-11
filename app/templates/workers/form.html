@@ -23,8 +23,9 @@
     <label>Percentage Tier</label>
     <select name="labor_percentage_tier">
       <option value="">—</option>
-      <option value="tier_1" {% if worker and worker.labor_percentage_tier == 'tier_1' %}selected{% endif %}>Tier 1 ({{ payroll_config.tier_1_weight }} weight)</option>
-      <option value="tier_2" {% if worker and worker.labor_percentage_tier == 'tier_2' %}selected{% endif %}>Tier 2 ({{ payroll_config.tier_2_weight }} weight)</option>
+      <option value="tier_1" {% if worker and worker.labor_percentage_tier == 'tier_1' %}selected{% endif %}>Tier 1: Full contractor ({{ payroll_config.tier_1_weight }})</option>
+      <option value="tier_2" {% if worker and worker.labor_percentage_tier == 'tier_2' %}selected{% endif %}>Tier 2: Supplemental contractor ({{ payroll_config.tier_2_weight }})</option>
+      <option value="tier_3" {% if worker and worker.labor_percentage_tier == 'tier_3' %}selected{% endif %}>Tier 3: Supplied skilled worker ({{ payroll_config.tier_3_weight }})</option>
     </select>
 
     <label>Hourly Rate ($)</label>

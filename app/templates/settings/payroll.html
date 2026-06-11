@@ -79,35 +79,51 @@
 
     <h2 style="margin-top:2rem">Percentage Pay Tiers</h2>
     <p style="color:#64748b; font-size:.95rem">
-      Relative weights for splitting the labor pool among percentage workers.
-      A worker on Tier 1 earns proportionally more than Tier 2.
+      Proportional weights for splitting the labor pool among percentage workers.
+      Tier 1 is the anchor at 1.00; lower tiers earn proportionally less.
     </p>
 
     <div class="config-grid">
       <div>
-        <label for="tier_1_weight">Tier 1 Weight</label>
+        <label for="tier_1_weight">Tier 1: Full contractor</label>
         <input
           type="number"
-          step="0.01"
-          min="0.01"
+          step="0.001"
+          min="0.001"
           id="tier_1_weight"
           name="tier_1_weight"
           value="{{ config.tier_1_weight }}"
           required
         >
+        <p class="field-hint">Baseline (1.00 = 100% of top-tier pay).</p>
       </div>
 
       <div>
-        <label for="tier_2_weight">Tier 2 Weight</label>
+        <label for="tier_2_weight">Tier 2: Supplemental contractor</label>
         <input
           type="number"
-          step="0.01"
-          min="0.01"
+          step="0.001"
+          min="0.001"
           id="tier_2_weight"
           name="tier_2_weight"
           value="{{ config.tier_2_weight }}"
           required
         >
+        <p class="field-hint">Default 0.825 (17.5% less than Tier 1).</p>
+      </div>
+
+      <div>
+        <label for="tier_3_weight">Tier 3: Supplied skilled worker</label>
+        <input
+          type="number"
+          step="0.001"
+          min="0.001"
+          id="tier_3_weight"
+          name="tier_3_weight"
+          value="{{ config.tier_3_weight }}"
+          required
+        >
+        <p class="field-hint">Default 0.65 (35% less than Tier 1).</p>
       </div>
     </div>
 

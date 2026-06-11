@@ -36,8 +36,9 @@ def default_payroll_rates() -> PayrollRates:
         labor_pool_rate=Decimal("0.60"),
         commission_pool_rate=Decimal("0.20"),
         tier_weights={
-            Tier.TIER_1.value: Decimal("1.5"),
-            Tier.TIER_2.value: Decimal("1.0"),
+            Tier.TIER_1.value: Decimal("1.00"),
+            Tier.TIER_2.value: Decimal("0.825"),
+            Tier.TIER_3.value: Decimal("0.65"),
         },
     )
 

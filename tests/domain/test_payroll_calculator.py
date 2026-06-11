@@ -217,8 +217,8 @@ def test_edge_rounding():
     t1 = _worker_total(result, "t1")
     t2 = _worker_total(result, "t2")
     assert t1.percentage_total + t2.percentage_total == Decimal("60.00")
-    assert t1.percentage_total == Decimal("36.00")
-    assert t2.percentage_total == Decimal("24.00")
+    assert t1.percentage_total == Decimal("32.88")
+    assert t2.percentage_total == Decimal("27.12")
 
 
 def test_multiple_jobs_per_day():
@@ -259,8 +259,8 @@ def test_tier_distribution_with_mixed_pay():
     t1 = _worker_total(result, "t1")
     t2 = _worker_total(result, "t2")
     assert hourly.hourly_total == Decimal("120.00")
-    assert t1.percentage_total == Decimal("108.00")
-    assert t2.percentage_total == Decimal("72.00")
+    assert t1.percentage_total == Decimal("98.63")
+    assert t2.percentage_total == Decimal("81.37")
     assert t1.percentage_total + t2.percentage_total + hourly.hourly_total == Decimal("300.00")
 
 

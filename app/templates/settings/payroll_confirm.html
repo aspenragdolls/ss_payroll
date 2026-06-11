@@ -51,14 +51,19 @@
     </thead>
     <tbody>
       <tr>
-        <td>Tier 1</td>
+        <td>Tier 1: Full contractor</td>
         <td>{{ current.tier_1_weight }}</td>
         <td><strong>{{ proposed.tier_1_weight }}</strong></td>
       </tr>
       <tr>
-        <td>Tier 2</td>
+        <td>Tier 2: Supplemental contractor</td>
         <td>{{ current.tier_2_weight }}</td>
         <td><strong>{{ proposed.tier_2_weight }}</strong></td>
+      </tr>
+      <tr>
+        <td>Tier 3: Supplied skilled worker</td>
+        <td>{{ current.tier_3_weight }}</td>
+        <td><strong>{{ proposed.tier_3_weight }}</strong></td>
       </tr>
     </tbody>
   </table>
@@ -69,6 +74,7 @@
     <input type="hidden" name="business_retained_percent" value="{{ proposed.business_retained_percent }}">
     <input type="hidden" name="tier_1_weight" value="{{ proposed.tier_1_weight }}">
     <input type="hidden" name="tier_2_weight" value="{{ proposed.tier_2_weight }}">
+    <input type="hidden" name="tier_3_weight" value="{{ proposed.tier_3_weight }}">
 
     <button class="btn" type="submit">Confirm and Save</button>
     <a class="btn btn-secondary" href="/settings/payroll">Go Back and Edit</a>

@@ -128,6 +128,7 @@ def _config_from_form(
     business_retained_percent: str,
     tier_1_weight: str,
     tier_2_weight: str,
+    tier_3_weight: str,
     fallback: PayrollConfigValues,
 ) -> PayrollConfigValues:
     """Build display values from form input, falling back where parsing fails."""
@@ -137,6 +138,7 @@ def _config_from_form(
         ("business_retained_percent", business_retained_percent),
         ("tier_1_weight", tier_1_weight),
         ("tier_2_weight", tier_2_weight),
+        ("tier_3_weight", tier_3_weight),
     ]
     values = {}
     for attr, raw in fields:
@@ -155,6 +157,7 @@ async def payroll_settings_review(
     business_retained_percent: str = Form(...),
     tier_1_weight: str = Form(...),
     tier_2_weight: str = Form(...),
+    tier_3_weight: str = Form(...),
 ):
     current = get_payroll_config(db, user.id)
     proposed, errors = parse_config_form(
@@ -163,6 +166,7 @@ async def payroll_settings_review(
         business_retained_percent=business_retained_percent,
         tier_1_weight=tier_1_weight,
         tier_2_weight=tier_2_weight,
+        tier_3_weight=tier_3_weight,
     )
     if errors or proposed is None:
         display = _config_from_form(
@@ -171,6 +175,7 @@ async def payroll_settings_review(
             business_retained_percent=business_retained_percent,
             tier_1_weight=tier_1_weight,
             tier_2_weight=tier_2_weight,
+            tier_3_weight=tier_3_weight,
             fallback=current,
         )
         return request.app.state.templates.TemplateResponse(
@@ -203,6 +208,7 @@ async def payroll_settings_save(
     business_retained_percent: str = Form(...),
     tier_1_weight: str = Form(...),
     tier_2_weight: str = Form(...),
+    tier_3_weight: str = Form(...),
 ):
     proposed, errors = parse_config_form(
         labor_pool_percent=labor_pool_percent,
@@ -210,6 +216,7 @@ async def payroll_settings_save(
         business_retained_percent=business_retained_percent,
         tier_1_weight=tier_1_weight,
         tier_2_weight=tier_2_weight,
+        tier_3_weight=tier_3_weight,
     )
     if errors or proposed is None:
         current = get_payroll_config(db, user.id)
@@ -219,6 +226,7 @@ async def payroll_settings_save(
             business_retained_percent=business_retained_percent,
             tier_1_weight=tier_1_weight,
             tier_2_weight=tier_2_weight,
+            tier_3_weight=tier_3_weight,
             fallback=current,
         )
         return request.app.state.templates.TemplateResponse(

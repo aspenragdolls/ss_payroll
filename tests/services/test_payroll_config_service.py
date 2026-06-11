@@ -21,8 +21,9 @@ def test_parse_config_form_valid():
         labor_pool_percent="55",
         commission_pool_percent="25",
         business_retained_percent="20",
-        tier_1_weight="2",
-        tier_2_weight="1",
+        tier_1_weight="1",
+        tier_2_weight="0.825",
+        tier_3_weight="0.65",
     )
     assert not errors
     assert values is not None
@@ -35,8 +36,9 @@ def test_parse_config_form_rejects_invalid_total():
         labor_pool_percent="50",
         commission_pool_percent="20",
         business_retained_percent="20",
-        tier_1_weight="1.5",
-        tier_2_weight="1",
+        tier_1_weight="1",
+        tier_2_weight="0.825",
+        tier_3_weight="0.65",
     )
     assert values is None
     assert any("100%" in e for e in errors)
@@ -47,8 +49,9 @@ def test_parse_config_form_rejects_non_numeric():
         labor_pool_percent="abc",
         commission_pool_percent="20",
         business_retained_percent="20",
-        tier_1_weight="1.5",
-        tier_2_weight="1",
+        tier_1_weight="1",
+        tier_2_weight="0.825",
+        tier_3_weight="0.65",
     )
     assert values is None
     assert errors
@@ -60,7 +63,8 @@ def test_validate_rejects_zero_tier_weight():
         commission_pool_percent=Decimal("20"),
         business_retained_percent=Decimal("20"),
         tier_1_weight=Decimal("0"),
-        tier_2_weight=Decimal("1"),
+        tier_2_weight=Decimal("0.825"),
+        tier_3_weight=Decimal("0.65"),
     )
     errors = validate_config_values(values)
     assert any("greater than zero" in e for e in errors)

@@ -24,10 +24,13 @@ class PayrollConfig(Base):
         Numeric(5, 2), nullable=False, default=Decimal("20")
     )
     tier_1_weight: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2), nullable=False, default=Decimal("1.5")
+        Numeric(6, 3), nullable=False, default=Decimal("1.000")
     )
     tier_2_weight: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2), nullable=False, default=Decimal("1.0")
+        Numeric(6, 3), nullable=False, default=Decimal("0.825")
+    )
+    tier_3_weight: Mapped[Decimal] = mapped_column(
+        Numeric(6, 3), nullable=False, default=Decimal("0.650")
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
