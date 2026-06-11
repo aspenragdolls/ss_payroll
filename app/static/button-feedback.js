@@ -36,23 +36,84 @@
     document.querySelectorAll("button.btn[type='submit']").forEach(enhanceButton);
   }
 
+  function savedJobsStorageKey() {
+    return "button-feedback:saved-jobs:" + window.location.pathname;
+  }
+
+  function getSavedJobIds() {
+    try {
+      const raw = sessionStorage.getItem(savedJobsStorageKey());
+      return raw ? JSON.parse(raw) : [];
+    } catch (_err) {
+      return [];
+    }
+  }
+
+  function setSavedJobIds(ids) {
+    sessionStorage.setItem(savedJobsStorageKey(), JSON.stringify(ids));
+  }
+
+  function addSavedJobId(jobId) {
+    const ids = getSavedJobIds();
+    if (!ids.includes(jobId)) {
+      ids.push(jobId);
+      setSavedJobIds(ids);
+    }
+  }
+
+  function removeSavedJobId(jobId) {
+    setSavedJobIds(getSavedJobIds().filter(function (id) {
+      return id !== jobId;
+    }));
+  }
+
+  function jobIdFromEditForm(form) {
+    const match = form.getAttribute("action")?.match(/\/jobs\/(\d+)\/edit/);
+    return match ? match[1] : null;
+  }
+
+  function getJobEditButton(jobId) {
+    const form = document.querySelector(
+      'form[action*="/jobs/' + jobId + '/edit"]'
+    );
+    return form && form.querySelector("button.btn[type='submit']");
+  }
+
+  function applySavedJobsFromStorage() {
+    const onPage = new Set();
+    document
+      .querySelectorAll('form[action*="/jobs/"][action*="/edit"]')
+      .forEach(function (form) {
+        const jobId = jobIdFromEditForm(form);
+        if (jobId) onPage.add(jobId);
+      });
+
+    const savedIds = getSavedJobIds().filter(function (id) {
+      return onPage.has(id);
+    });
+    if (savedIds.length !== getSavedJobIds().length) {
+      setSavedJobIds(savedIds);
+    }
+
+    savedIds.forEach(function (jobId) {
+      const btn = getJobEditButton(jobId);
+      if (btn) {
+        enhanceButton(btn);
+        setButtonSaved(btn);
+      }
+    });
+  }
+
   function bindFormResetOnChange(form) {
     const btn = form.querySelector("button.btn[type='submit']");
     if (!btn) return;
-    form.addEventListener(
-      "input",
-      function () {
-        clearButtonSaved(btn);
-      },
-      true
-    );
-    form.addEventListener(
-      "change",
-      function () {
-        clearButtonSaved(btn);
-      },
-      true
-    );
+    const jobId = jobIdFromEditForm(form);
+    function onDirty() {
+      clearButtonSaved(btn);
+      if (jobId) removeSavedJobId(jobId);
+    }
+    form.addEventListener("input", onDirty, true);
+    form.addEventListener("change", onDirty, true);
   }
 
   function applySavedFromUrl() {
@@ -64,6 +125,7 @@
     let targetBtn = null;
 
     if (savedJob) {
+      addSavedJobId(savedJob);
       const form = document.querySelector(
         'form[action*="/jobs/' + savedJob + '/edit"]'
       );
@@ -115,5 +177,6 @@
     enhanceAllButtons();
     document.querySelectorAll("main form").forEach(bindFormResetOnChange);
     applySavedFromUrl();
+    applySavedJobsFromStorage();
   });
 })();
