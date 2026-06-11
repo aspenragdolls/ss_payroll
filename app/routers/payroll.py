@@ -17,27 +17,58 @@ from app.models.user import User
 from app.services.calendar_service import CalendarFetchError, fetch_events_for_user, is_calendar_connected
 from app.services.job_validation import validate_draft_job
 from app.services.openrouter_job_parser import parse_calendar_event, safe_decimal
+from app.domain.payroll_stages import PAYROLL_STEPS, PAYROLL_STEP_LABELS, get_stage_url, stage_index
 from app.services.payroll_service import (
+    advance_batch_stage,
     clear_assignments_for_job,
     compute_hours_assigned,
     create_batch,
     create_job_from_draft,
+    delete_in_progress_batch,
+    delete_job,
     ensure_editable,
     finalize_batch,
     get_assignments_for_batch,
     get_batch,
+    get_batch_stage,
     get_job,
     get_jobs_for_batch,
     get_owner_worker,
     list_batches,
+    list_in_progress_batches,
+    navigate_to_stage,
+    reset_progress_after,
     run_calculation,
     save_assignment,
+    set_batch_stage,
     update_job,
 )
+from app.services.payroll_config_service import get_payroll_config
 from app.services.worker_service import list_workers, workers_with_role
 from app.template_utils import job_label
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
+
+
+def _step_context(db: Session, batch: PayrollBatch, current_stage: str) -> dict:
+    max_stage = get_batch_stage(db, batch)
+    return {
+        "current_step": current_stage,
+        "max_stage": max_stage,
+        "max_stage_index": stage_index(max_stage),
+        "payroll_steps": PAYROLL_STEPS,
+    }
+
+
+def _navigate_or_redirect(
+    db: Session, batch: PayrollBatch, target_stage: str
+) -> str | RedirectResponse:
+    effective = navigate_to_stage(db, batch, target_stage)
+    if effective != target_stage:
+        return RedirectResponse(
+            get_stage_url(batch.id, effective), status_code=status.HTTP_303_SEE_OTHER
+        )
+    return effective
 
 
 def _enrich_warning_messages(
@@ -78,6 +109,16 @@ async def begin_payroll_page(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    drafts = list_in_progress_batches(db, user.id)
+    draft_sessions = [
+        {
+            "batch": batch,
+            "stage": get_batch_stage(db, batch),
+            "stage_label": PAYROLL_STEP_LABELS.get(get_batch_stage(db, batch), "Jobs"),
+            "resume_url": get_stage_url(batch.id, get_batch_stage(db, batch)),
+        }
+        for batch in drafts
+    ]
     return request.app.state.templates.TemplateResponse(
         request,
         "payroll/begin.html",
@@ -86,6 +127,7 @@ async def begin_payroll_page(
             "user": user,
             "default_date": date.today().isoformat(),
             "calendar_connected": is_calendar_connected(db, user.id),
+            "draft_sessions": draft_sessions,
         },
     )
 
@@ -129,6 +171,23 @@ async def begin_payroll(
     return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.post("/{batch_id}/delete")
+async def delete_draft_session(
+    batch_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    return_to: str = Form("begin"),
+):
+    batch = get_batch(db, user.id, batch_id)
+    if batch:
+        try:
+            delete_in_progress_batch(db, batch)
+        except PermissionError:
+            pass
+    redirect_url = "/" if return_to == "dashboard" else "/payroll/begin"
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/{batch_id}/jobs")
 async def review_jobs(
     request: Request,
@@ -140,6 +199,9 @@ async def review_jobs(
     batch = get_batch(db, user.id, batch_id)
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
+    nav = _navigate_or_redirect(db, batch, "jobs")
+    if isinstance(nav, RedirectResponse):
+        return nav
     jobs = get_jobs_for_batch(db, user.id, batch_id)
     return request.app.state.templates.TemplateResponse(
         request,
@@ -152,6 +214,7 @@ async def review_jobs(
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
             "calendar_connected": is_calendar_connected(db, user.id),
             "import_error": import_error,
+            **_step_context(db, batch, "jobs"),
         },
     )
 
@@ -180,6 +243,9 @@ async def edit_job(
     except PermissionError:
         return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
 
+    reset_progress_after(db, batch, "jobs")
+    set_batch_stage(db, batch, "jobs")
+
     parsed_tips = safe_decimal(tips)
     update_job(
         db,
@@ -193,6 +259,31 @@ async def edit_job(
         is_cash=bool(is_cash),
         review_status=review_status,
     )
+    return RedirectResponse(
+        f"/payroll/{batch_id}/jobs?saved=1&saved_job={job_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/{batch_id}/jobs/{job_id}/delete")
+async def remove_job(
+    batch_id: int,
+    job_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    batch = get_batch(db, user.id, batch_id)
+    job = get_job(db, user.id, job_id)
+    if not batch or not job or job.payroll_batch_id != batch_id:
+        return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        ensure_editable(batch)
+    except PermissionError:
+        return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
+
+    reset_progress_after(db, batch, "jobs")
+    set_batch_stage(db, batch, "jobs")
+    delete_job(db, job)
     return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -216,6 +307,9 @@ async def add_manual_job(
     except PermissionError:
         return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
 
+    reset_progress_after(db, batch, "jobs")
+    set_batch_stage(db, batch, "jobs")
+
     create_job_from_draft(
         db,
         user.id,
@@ -230,7 +324,10 @@ async def add_manual_job(
         validation_flags=[],
         is_cash=bool(is_cash),
     )
-    return RedirectResponse(f"/payroll/{batch_id}/jobs", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        f"/payroll/{batch_id}/jobs?saved=1&saved_form=manual",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/{batch_id}/assign")
@@ -243,6 +340,9 @@ async def assign_workers(
     batch = get_batch(db, user.id, batch_id)
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
+    nav = _navigate_or_redirect(db, batch, "assign")
+    if isinstance(nav, RedirectResponse):
+        return nav
     jobs = get_jobs_for_batch(db, user.id, batch_id)
     workers = list_workers(db, user.id, active_only=True)
     labor_workers = workers_with_role(workers, Role.LABOR)
@@ -263,7 +363,9 @@ async def assign_workers(
             "labor_workers": labor_workers,
             "sales_workers": sales_workers,
             "assignment_map": assignment_map,
+            "payroll_config": get_payroll_config(db, user.id),
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
+            **_step_context(db, batch, "assign"),
         },
     )
 
@@ -282,6 +384,8 @@ async def save_assignments(
         ensure_editable(batch)
     except PermissionError:
         return RedirectResponse(f"/payroll/{batch_id}/assign", status_code=status.HTTP_303_SEE_OTHER)
+
+    reset_progress_after(db, batch, "assign")
 
     form = await request.form()
     jobs = get_jobs_for_batch(db, user.id, batch_id)
@@ -325,6 +429,7 @@ async def save_assignments(
                 fixed_adjustment_amount=adjustment,
             )
     db.commit()
+    advance_batch_stage(db, batch, "hours")
     return RedirectResponse(f"/payroll/{batch_id}/hours", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -338,6 +443,9 @@ async def hours_input(
     batch = get_batch(db, user.id, batch_id)
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
+    nav = _navigate_or_redirect(db, batch, "hours")
+    if isinstance(nav, RedirectResponse):
+        return nav
 
     assignments = get_assignments_for_batch(db, batch_id)
     hourly_needs: dict[tuple[int, date], dict] = {}
@@ -368,6 +476,7 @@ async def hours_input(
             "hourly_needs": hourly_needs,
             "saved_hours": saved_hours,
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
+            **_step_context(db, batch, "hours"),
         },
     )
 
@@ -405,11 +514,14 @@ async def save_hours_form(
                 daily_hours[(worker_id, day)] = hours
                 saved[f"{worker_id}|{day.isoformat()}"] = str(hours)
 
-    batch.session_data_json = {"daily_hours": saved}
+    session_data = dict(batch.session_data_json or {})
+    session_data["daily_hours"] = saved
+    batch.session_data_json = session_data
     db.commit()
     compute_hours_assigned(db, user.id, batch_id, daily_hours)
     owner = get_owner_worker(db, user.id)
     run_calculation(db, user.id, batch, daily_hours, owner.id if owner else None)
+    advance_batch_stage(db, batch, "calculate")
     return RedirectResponse(f"/payroll/{batch_id}/calculate", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -423,6 +535,9 @@ async def calculate_page(
     batch = get_batch(db, user.id, batch_id)
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
+    nav = _navigate_or_redirect(db, batch, "calculate")
+    if isinstance(nav, RedirectResponse):
+        return nav
 
     job_results = list(
         db.scalars(
@@ -457,6 +572,7 @@ async def calculate_page(
             "worker_results": worker_results,
             "warnings": warnings,
             "readonly": batch.status == PayrollStatus.FINALIZED.value,
+            **_step_context(db, batch, "calculate"),
         },
     )
 
@@ -483,7 +599,11 @@ async def run_calculate(
 
     owner = get_owner_worker(db, user.id)
     run_calculation(db, user.id, batch, daily_hours, owner.id if owner else None)
-    return RedirectResponse(f"/payroll/{batch_id}/calculate", status_code=status.HTTP_303_SEE_OTHER)
+    advance_batch_stage(db, batch, "calculate")
+    return RedirectResponse(
+        f"/payroll/{batch_id}/calculate?saved=1",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/{batch_id}/finalize")
@@ -496,6 +616,9 @@ async def finalize_page(
     batch = get_batch(db, user.id, batch_id)
     if not batch:
         return RedirectResponse("/payroll/begin", status_code=status.HTTP_303_SEE_OTHER)
+    nav = _navigate_or_redirect(db, batch, "finalize")
+    if isinstance(nav, RedirectResponse):
+        return nav
     worker_results = list(
         db.scalars(
             select(PayrollResult)
@@ -511,6 +634,7 @@ async def finalize_page(
             "user": user,
             "batch": batch,
             "worker_results": worker_results,
+            **_step_context(db, batch, "finalize"),
         },
     )
 

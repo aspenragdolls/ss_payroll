@@ -133,7 +133,10 @@ async def workers_update(
         hourly_rate=_parse_decimal(hourly_rate),
         notes=notes or None,
     )
-    return RedirectResponse("/workers", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        f"/workers/{worker_id}/edit?saved=1",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 def _parse_decimal(value: str) -> Decimal | None:

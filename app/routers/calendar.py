@@ -80,7 +80,10 @@ async def calendar_connect(
         conn.access_token_encrypted = encrypt_credential(app_password)
 
     db.commit()
-    return RedirectResponse("/settings/calendar", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/settings/calendar?saved=1&saved_form=connect",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/calendar/disconnect")
@@ -94,7 +97,10 @@ async def calendar_disconnect(
         conn.access_token_encrypted = None
         conn.refresh_token_encrypted = None
         db.commit()
-    return RedirectResponse("/settings/calendar", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        "/settings/calendar?saved=1&saved_form=disconnect",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/accounting")

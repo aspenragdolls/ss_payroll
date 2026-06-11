@@ -2,6 +2,41 @@
 {% block title %}Begin Payroll — ss_payroll{% endblock %}
 {% block content %}
 <h1>Begin Payroll</h1>
+
+{% if draft_sessions %}
+<div class="card">
+  <h2>Resume In-Progress Payroll</h2>
+  <p>These sessions were saved automatically. Pick up where you left off or start a new payroll below.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Pay Date</th>
+        <th>Last Step</th>
+        <th>Updated</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for session in draft_sessions %}
+      <tr>
+        <td>{{ session.batch.pay_date or '—' }}</td>
+        <td>{{ session.stage_label }}</td>
+        <td>{{ session.batch.updated_at.strftime('%Y-%m-%d %H:%M') if session.batch.updated_at else '—' }}</td>
+        <td class="session-actions">
+          <a class="btn" href="{{ session.resume_url }}">Resume</a>
+          <form method="post" action="/payroll/{{ session.batch.id }}/delete" class="inline-form"
+            onsubmit="return confirm('Delete this in-progress payroll session? This cannot be undone.');">
+            <input type="hidden" name="return_to" value="begin">
+            <button type="submit" class="btn btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <div class="card">
   {% if calendar_connected %}
   <p>Jobs for the selected date will be imported from your connected Apple calendar. Review and edit them on the next step.</p>
@@ -11,7 +46,7 @@
   <form method="post">
     <label>Pay Date</label>
     <input type="date" name="pay_date" value="{{ default_date }}" required>
-    <p style="margin-top:1rem"><button class="btn" type="submit">Begin Payroll</button></p>
+    <p style="margin-top:1rem"><button class="btn" type="submit">Begin New Payroll</button></p>
   </form>
 </div>
 {% endblock %}

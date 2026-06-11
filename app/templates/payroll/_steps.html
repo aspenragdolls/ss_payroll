@@ -1,7 +1,13 @@
 <nav class="steps">
-  <a href="/payroll/{{ batch.id }}/jobs" class="active">Jobs</a>
-  <a href="/payroll/{{ batch.id }}/assign">Assign</a>
-  <a href="/payroll/{{ batch.id }}/hours">Hours</a>
-  <a href="/payroll/{{ batch.id }}/calculate">Calculate</a>
-  <a href="/payroll/{{ batch.id }}/finalize">Finalize</a>
+  {% for slug, label in payroll_steps %}
+    {% set step_index = loop.index0 %}
+    {% if step_index <= max_stage_index %}
+      <a href="/payroll/{{ batch.id }}/{{ slug }}"
+         class="{% if slug == current_step %}active{% endif %}">
+        {{ label }}
+      </a>
+    {% else %}
+      <span class="step-disabled">{{ label }}</span>
+    {% endif %}
+  {% endfor %}
 </nav>

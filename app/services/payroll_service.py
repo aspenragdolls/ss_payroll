@@ -4,10 +4,11 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.enums import PayType, PayrollStatus, Role, Tier
+from app.domain.payroll_stages import PAYROLL_STAGES, stage_index
 from app.domain.payroll_calculator import calculate
 from app.domain.schemas import CalcAssignment, CalcInput, CalcJob
 from app.models.job import Job, JobWorkerAssignment
@@ -37,7 +38,12 @@ def ensure_editable(batch: PayrollBatch) -> None:
 
 
 def create_batch(db: Session, user_id: int, pay_date: date | None = None) -> PayrollBatch:
-    batch = PayrollBatch(user_id=user_id, status=PayrollStatus.DRAFT.value, pay_date=pay_date)
+    batch = PayrollBatch(
+        user_id=user_id,
+        status=PayrollStatus.DRAFT.value,
+        pay_date=pay_date,
+        session_data_json={"stage": "jobs"},
+    )
     db.add(batch)
     db.commit()
     db.refresh(batch)
@@ -49,6 +55,132 @@ def list_batches(db: Session, user_id: int, finalized_only: bool = False) -> lis
     if finalized_only:
         stmt = stmt.where(PayrollBatch.status == PayrollStatus.FINALIZED.value)
     return list(db.scalars(stmt))
+
+
+def list_in_progress_batches(db: Session, user_id: int) -> list[PayrollBatch]:
+    return list(
+        db.scalars(
+            select(PayrollBatch)
+            .where(
+                PayrollBatch.user_id == user_id,
+                PayrollBatch.status.in_(
+                    [PayrollStatus.DRAFT.value, PayrollStatus.REVIEW.value]
+                ),
+            )
+            .order_by(PayrollBatch.updated_at.desc())
+        )
+    )
+
+
+def delete_in_progress_batch(db: Session, batch: PayrollBatch) -> None:
+    if batch.status == PayrollStatus.FINALIZED.value:
+        raise PermissionError("Cannot delete finalized payroll")
+    db.delete(batch)
+    db.commit()
+
+
+def _session_data(batch: PayrollBatch) -> dict:
+    return dict(batch.session_data_json or {})
+
+
+def _has_calculation_results(db: Session, batch_id: int) -> bool:
+    count = db.scalar(
+        select(func.count())
+        .select_from(PayrollResult)
+        .where(PayrollResult.payroll_batch_id == batch_id)
+    )
+    return bool(count)
+
+
+def infer_batch_stage(db: Session, batch: PayrollBatch) -> str:
+    if batch.status == PayrollStatus.FINALIZED.value:
+        return "finalize"
+    if _has_calculation_results(db, batch.id):
+        return "calculate"
+    data = _session_data(batch)
+    if data.get("daily_hours"):
+        return "hours"
+    if get_assignments_for_batch(db, batch.id):
+        return "assign"
+    return "jobs"
+
+
+def get_batch_stage(db: Session, batch: PayrollBatch) -> str:
+    stage = _session_data(batch).get("stage")
+    if stage in PAYROLL_STAGES:
+        return stage
+    return infer_batch_stage(db, batch)
+
+
+def set_batch_stage(db: Session, batch: PayrollBatch, stage: str) -> None:
+    data = _session_data(batch)
+    data["stage"] = stage
+    batch.session_data_json = data
+    db.commit()
+
+
+def advance_batch_stage(db: Session, batch: PayrollBatch, stage: str) -> None:
+    current = get_batch_stage(db, batch)
+    if stage_index(stage) > stage_index(current):
+        set_batch_stage(db, batch, stage)
+
+
+def reset_progress_after(db: Session, batch: PayrollBatch, stage: str) -> None:
+    if batch.status == PayrollStatus.FINALIZED.value:
+        return
+
+    idx = stage_index(stage)
+    user_id = batch.user_id
+    batch_id = batch.id
+
+    if idx < stage_index("assign"):
+        for job in get_jobs_for_batch(db, user_id, batch_id):
+            clear_assignments_for_job(db, job.id)
+
+    if idx < stage_index("hours"):
+        data = _session_data(batch)
+        data.pop("daily_hours", None)
+        batch.session_data_json = data or None
+        for assignment in get_assignments_for_batch(db, batch_id):
+            assignment.hours_assigned = None
+
+    if idx < stage_index("calculate"):
+        db.execute(delete(PayrollResult).where(PayrollResult.payroll_batch_id == batch_id))
+        db.execute(
+            delete(PayrollJobResult).where(PayrollJobResult.payroll_batch_id == batch_id)
+        )
+        if batch.status == PayrollStatus.REVIEW.value:
+            batch.status = PayrollStatus.DRAFT.value
+
+    db.commit()
+
+
+def navigate_to_stage(db: Session, batch: PayrollBatch, target_stage: str) -> str:
+    if batch.status == PayrollStatus.FINALIZED.value:
+        return target_stage
+
+    current = get_batch_stage(db, batch)
+    target_idx = stage_index(target_stage)
+    current_idx = stage_index(current)
+
+    if target_idx > current_idx:
+        if target_idx == current_idx + 1:
+            set_batch_stage(db, batch, target_stage)
+            return target_stage
+        if (
+            target_stage == "finalize"
+            and current == "calculate"
+            and _has_calculation_results(db, batch.id)
+        ):
+            set_batch_stage(db, batch, "finalize")
+            return "finalize"
+        return current
+
+    if target_idx < current_idx:
+        reset_progress_after(db, batch, target_stage)
+
+    set_batch_stage(db, batch, target_stage)
+    return target_stage
 
 
 def get_jobs_for_batch(db: Session, user_id: int, batch_id: int) -> list[Job]:
@@ -106,6 +238,11 @@ def update_job(db: Session, job: Job, **fields) -> Job:
     db.commit()
     db.refresh(job)
     return job
+
+
+def delete_job(db: Session, job: Job) -> None:
+    db.delete(job)
+    db.commit()
 
 
 def get_assignments_for_batch(db: Session, batch_id: int) -> list[JobWorkerAssignment]:

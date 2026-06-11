@@ -2,6 +2,32 @@
 {% block title %}Dashboard — ss_payroll{% endblock %}
 {% block content %}
 <h1>Dashboard</h1>
+
+{% if draft_sessions %}
+<div class="card">
+  <h2>In-Progress Payroll</h2>
+  <ul class="draft-list">
+    {% for session in draft_sessions %}
+    <li>
+      <span>
+        <strong>{{ session.batch.pay_date or 'No date' }}</strong>
+        — {{ session.stage_label }}
+      </span>
+      <span class="draft-actions">
+        <a class="btn" href="{{ session.resume_url }}">Resume</a>
+        <form method="post" action="/payroll/{{ session.batch.id }}/delete" class="inline-form"
+          onsubmit="return confirm('Delete this in-progress payroll session? This cannot be undone.');">
+          <input type="hidden" name="return_to" value="dashboard">
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p><a href="/payroll/begin">View all in-progress sessions</a></p>
+</div>
+{% endif %}
+
 <div class="card">
   <p>Welcome, {{ user.business_name }}.</p>
   <p>

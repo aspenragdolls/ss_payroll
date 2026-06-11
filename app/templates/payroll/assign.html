@@ -3,22 +3,61 @@
 {% block content %}
 <h1>Assign Workers</h1>
 {% include "payroll/_steps.html" %}
-<p>Workers are filtered by profile roles. Roles are not changed here.</p>
+<p>Workers are filtered by profile roles. Check a labor worker to assign them; their default pay structure is applied automatically and can be toggled for this job.</p>
 <form method="post">
   {% for job in jobs %}
   <div class="card">
     <h3>{{ job | job_label }} — ${{ job.ticket_price or '0' }}</h3>
     <p><strong>Labor</strong> (profiles with labor role)</p>
     {% for w in labor_workers %}
-    <div class="checkbox-row">
-      {% set assigned = assignment_map.get(job.id, []) %}
-      {% set is_labor = assigned | selectattr('worker_id', 'equalto', w.id) | selectattr('roles') | list %}
-      <label>
-        <input type="checkbox" name="labor_{{ job.id }}" value="{{ w.id }}"
-          {% for a in assigned %}{% if a.worker_id == w.id and 'labor' in (a.roles or []) %}checked{% endif %}{% endfor %}
+    {% set ns = namespace(checked=false, pay_type=w.labor_pay_type or 'hourly', tier=w.labor_percentage_tier or '', rate=w.hourly_rate or '') %}
+    {% for a in assignment_map.get(job.id, []) %}
+      {% if a.worker_id == w.id and 'labor' in (a.roles or []) %}
+        {% set ns.checked = true %}
+        {% if a.effective_pay_type %}{% set ns.pay_type = a.effective_pay_type %}{% endif %}
+        {% if a.effective_percentage_tier %}{% set ns.tier = a.effective_percentage_tier %}{% endif %}
+        {% if a.effective_hourly_rate is not none %}{% set ns.rate = a.effective_hourly_rate %}{% endif %}
+      {% endif %}
+    {% endfor %}
+    <div class="labor-assignment"
+      data-default-pay-type="{{ w.labor_pay_type or 'hourly' }}"
+      data-default-tier="{{ w.labor_percentage_tier or '' }}"
+      data-default-rate="{{ w.hourly_rate or '' }}">
+      <div class="checkbox-row labor-assignment-header">
+        <label>
+          <input type="checkbox" class="labor-checkbox" name="labor_{{ job.id }}" value="{{ w.id }}"
+            {% if ns.checked %}checked{% endif %}
+            {% if readonly %}disabled{% endif %}>
+          {{ w.name }}
+          <span class="profile-pay-badge">{{ w.labor_pay_type or 'n/a' }}{% if w.labor_pay_type == 'hourly' and w.hourly_rate %} @ ${{ w.hourly_rate }}{% elif w.labor_pay_type == 'percentage' and w.labor_percentage_tier %} ({{ w.labor_percentage_tier | replace('_', ' ') }}){% endif %}</span>
+        </label>
+      </div>
+      <div class="pay-override-panel" {% if not ns.checked %}hidden{% endif %}>
+        <label for="pay_type_{{ job.id }}_{{ w.id }}">Pay structure for this job</label>
+        <select id="pay_type_{{ job.id }}_{{ w.id }}" class="pay-type-select" name="pay_type_{{ job.id }}_{{ w.id }}"
           {% if readonly %}disabled{% endif %}>
-        {{ w.name }} ({{ w.labor_pay_type or 'n/a' }})
-      </label>
+          <option value="hourly" {% if ns.pay_type == 'hourly' %}selected{% endif %}>Hourly</option>
+          <option value="percentage" {% if ns.pay_type == 'percentage' %}selected{% endif %}>Percentage</option>
+        </select>
+        <div class="pay-field pay-field-hourly" {% if ns.pay_type != 'hourly' %}hidden{% endif %}>
+          <label for="rate_{{ job.id }}_{{ w.id }}">Hourly rate ($)</label>
+          <input id="rate_{{ job.id }}_{{ w.id }}" class="hourly-rate-input" type="text" name="rate_{{ job.id }}_{{ w.id }}"
+            value="{{ ns.rate }}"
+            placeholder="e.g. 25.00"
+            {% if readonly %}disabled{% endif %}>
+        </div>
+        <div class="pay-field pay-field-percentage" {% if ns.pay_type != 'percentage' %}hidden{% endif %}>
+          <label for="tier_{{ job.id }}_{{ w.id }}">Percentage tier</label>
+          <select id="tier_{{ job.id }}_{{ w.id }}" class="tier-select" name="tier_{{ job.id }}_{{ w.id }}"
+            {% if readonly %}disabled{% endif %}>
+            <option value="">— select tier —</option>
+            <option value="tier_1" {% if ns.tier == 'tier_1' %}selected{% endif %}>Tier 1: Full contractor ({{ payroll_config.tier_1_weight }})</option>
+            <option value="tier_2" {% if ns.tier == 'tier_2' %}selected{% endif %}>Tier 2: Supplemental contractor ({{ payroll_config.tier_2_weight }})</option>
+            <option value="tier_3" {% if ns.tier == 'tier_3' %}selected{% endif %}>Tier 3: Supplied skilled worker ({{ payroll_config.tier_3_weight }})</option>
+          </select>
+        </div>
+        <p class="field-hint">Profile default: {{ w.labor_pay_type or 'not set' }}{% if w.labor_pay_type == 'hourly' and w.hourly_rate %} @ ${{ w.hourly_rate }}{% elif w.labor_pay_type == 'percentage' and w.labor_percentage_tier %} — {{ w.labor_percentage_tier | replace('_', ' ') }}{% endif %}</p>
+      </div>
     </div>
     {% endfor %}
     <p><strong>Sales</strong> (profiles with sales role)</p>
@@ -38,4 +77,5 @@
   <button class="btn" type="submit">Save &amp; Continue to Hours →</button>
   {% endif %}
 </form>
+<script src="/static/payroll-assign.js" defer></script>
 {% endblock %}

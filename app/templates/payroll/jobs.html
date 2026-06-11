@@ -9,8 +9,17 @@
 <div class="card">
   <h2>{% if calendar_connected %}Imported &amp; Manual Jobs{% else %}Jobs{% endif %}</h2>
   {% for job in jobs %}
-  <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit" style="border-bottom:1px solid #e5e7eb;padding:1rem 0">
-    <h3>{{ job | job_label }}</h3>
+  <div class="job-block">
+    <div class="job-header">
+      <h3>{{ job | job_label }}</h3>
+      {% if not readonly %}
+      <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/delete" class="inline-form"
+        onsubmit="return confirm('Remove this job from the payroll?');">
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+    <form method="post" action="/payroll/{{ batch.id }}/jobs/{{ job.id }}/edit">
     {% if job.validation_flags %}
       {% for flag in job.validation_flags %}<div class="flag">{{ flag }}</div>{% endfor %}
     {% endif %}
@@ -38,7 +47,8 @@
       <option value="confirmed" {% if job.review_status == 'confirmed' %}selected{% endif %}>Confirmed</option>
     </select>
     {% if not readonly %}<p><button class="btn" type="submit">Save Job</button></p>{% endif %}
-  </form>
+    </form>
+  </div>
   {% else %}
   {% if calendar_connected %}
   <p>No calendar events were found for this date. Add jobs manually below.</p>
