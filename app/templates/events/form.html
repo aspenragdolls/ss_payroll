@@ -92,15 +92,24 @@
       >
       <div class="ios-suggest" id="suggest-box" hidden></div>
       <label class="ios-sr-only" for="address">Location</label>
-      <input
-        class="ios-location-input"
-        type="text"
-        name="address"
-        id="address"
-        placeholder="Address"
-        autocomplete="street-address"
-        value="{{ values.address }}"
-      >
+      <div class="ios-location-field is-editing" id="address-field">
+        <input
+          class="ios-location-input"
+          type="text"
+          name="address"
+          id="address"
+          placeholder="Address"
+          autocomplete="street-address"
+          value="{{ values.address }}"
+        >
+        <a
+          class="ios-location-link"
+          id="address-link"
+          hidden
+          rel="noopener noreferrer"
+          title="Open in Maps · Hold to edit"
+        ></a>
+      </div>
       <div class="ios-when" id="when-block">
         <div class="ios-when-display">
           <button type="button" class="ios-when-date" id="date-display" aria-label="Choose date">
@@ -132,18 +141,26 @@
     </section>
 
     <section class="ios-group">
-      <label class="ios-row">
-        <span class="ios-row-label">Phone</span>
-        <input
-          class="ios-row-input"
-          type="tel"
-          name="phone"
-          id="phone"
-          inputmode="tel"
-          placeholder="801-555-0100"
-          value="{{ values.phone }}"
-        >
-      </label>
+      <div class="ios-row ios-phone-row">
+        <label class="ios-row-label" for="phone">Phone</label>
+        <span class="ios-phone-field is-editing" id="phone-field">
+          <input
+            class="ios-row-input"
+            type="tel"
+            name="phone"
+            id="phone"
+            inputmode="tel"
+            placeholder="801-555-0100"
+            value="{{ values.phone }}"
+          >
+          <a
+            class="ios-phone-link"
+            id="phone-link"
+            hidden
+            title="Call · Hold to edit"
+          ></a>
+        </span>
+      </div>
     </section>
 
     <section class="ios-group">
@@ -273,7 +290,11 @@
     const nameInput = document.getElementById("customer_name");
     const customerId = document.getElementById("customer_id");
     const addressInput = document.getElementById("address");
+    const addressField = document.getElementById("address-field");
+    const addressLink = document.getElementById("address-link");
     const phoneInput = document.getElementById("phone");
+    const phoneField = document.getElementById("phone-field");
+    const phoneLink = document.getElementById("phone-link");
     const priceInput = document.getElementById("price");
     const classification = document.getElementById("classification");
     const scopeRow = document.getElementById("scope-row");
@@ -482,6 +503,91 @@
       suggestBox.innerHTML = "";
     }
 
+    function navigationHref(address) {
+      const q = encodeURIComponent(address);
+      if (/Android/i.test(navigator.userAgent || "")) {
+        return "https://www.google.com/maps/dir/?api=1&destination=" + q;
+      }
+      return "https://maps.apple.com/?daddr=" + q;
+    }
+
+    function telHref(phone) {
+      const cleaned = String(phone || "").replace(/[^\d+]/g, "");
+      return cleaned ? "tel:" + cleaned : "";
+    }
+
+    function syncContactLink(input, field, link, hrefFor) {
+      if (!input || !field || !link) return;
+      const val = (input.value || "").trim();
+      const editing = document.activeElement === input || !val;
+      if (editing) {
+        field.classList.add("is-editing");
+        link.hidden = true;
+        link.removeAttribute("href");
+        link.textContent = "";
+        return;
+      }
+      link.textContent = val;
+      link.href = hrefFor(val);
+      link.hidden = false;
+      field.classList.remove("is-editing");
+    }
+
+    function syncAddressLink() {
+      syncContactLink(addressInput, addressField, addressLink, navigationHref);
+    }
+
+    function syncPhoneLink() {
+      syncContactLink(phoneInput, phoneField, phoneLink, telHref);
+    }
+
+    function bindHoldToEdit(link, input, syncFn) {
+      if (!link || !input) return;
+      let timer = null;
+      let suppressClick = false;
+
+      function clearTimer() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      }
+
+      function startEdit(e) {
+        if (e) e.preventDefault();
+        clearTimer();
+        suppressClick = true;
+        link.hidden = true;
+        if (input.parentElement) input.parentElement.classList.add("is-editing");
+        input.focus();
+        try { input.select(); } catch (err) {}
+      }
+
+      link.addEventListener("pointerdown", function (e) {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        suppressClick = false;
+        clearTimer();
+        timer = setTimeout(function () { startEdit(); }, 450);
+      });
+      link.addEventListener("pointerup", clearTimer);
+      link.addEventListener("pointerleave", clearTimer);
+      link.addEventListener("pointercancel", clearTimer);
+      link.addEventListener("click", function (e) {
+        if (suppressClick) {
+          e.preventDefault();
+          suppressClick = false;
+        }
+      });
+      link.addEventListener("dblclick", startEdit);
+      link.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        startEdit();
+      });
+      input.addEventListener("blur", syncFn);
+      input.addEventListener("input", syncFn);
+      input.addEventListener("focus", syncFn);
+    }
+
     function applyCustomer(item) {
       suppressSuggest = true;
       customerId.value = item.id;
@@ -499,6 +605,8 @@
       }
       toggleScope();
       updatePreview();
+      syncAddressLink();
+      syncPhoneLink();
       hideSuggest();
       setTimeout(function () { suppressSuggest = false; }, 0);
     }
@@ -562,9 +670,14 @@
       }
     });
 
+    bindHoldToEdit(addressLink, addressInput, syncAddressLink);
+    bindHoldToEdit(phoneLink, phoneInput, syncPhoneLink);
+
     initWhenFromHidden();
     toggleScope();
     updatePreview();
+    syncAddressLink();
+    syncPhoneLink();
     baseline = snapshotForm();
   })();
   </script>

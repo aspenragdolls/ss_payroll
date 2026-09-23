@@ -96,3 +96,9 @@ def test_event_edit_done_skips_save_when_unchanged():
     assert "Done" in html
     assert "Start Job" in html
     assert "Job Duration" in html
+    assert 'id="address-link"' in html
+    assert 'id="phone-link"' in html
+    assert "maps.apple.com/?daddr=" in html
+    assert "tel:" in html
+    assert "navigationHref" in html
+    assert "telHref" in html

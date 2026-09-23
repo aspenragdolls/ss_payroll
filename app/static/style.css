@@ -765,6 +765,9 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: var(--step-disabled
   padding: 0.15rem 0;
   outline: none;
 }
+.ios-location-field {
+  position: relative;
+}
 .ios-location-input {
   width: 100%;
   max-width: none;
@@ -774,6 +777,74 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: var(--step-disabled
   font-size: 1.05rem;
   padding: 0.35rem 0 0.55rem;
   outline: none;
+}
+.ios-location-link {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: auto;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  width: max-content;
+  color: var(--ios-danger);
+  font-size: 1.05rem;
+  padding: 0.35rem 0 0.55rem;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 1;
+}
+.ios-location-field:not(.is-editing) .ios-location-input {
+  color: transparent;
+  caret-color: transparent;
+}
+.ios-location-field.is-editing .ios-location-link,
+.ios-location-link[hidden] {
+  display: none;
+}
+.ios-phone-field {
+  position: relative;
+  flex: 1;
+  max-width: 60%;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.ios-phone-field .ios-row-input {
+  max-width: none;
+  width: 100%;
+}
+.ios-phone-link {
+  position: absolute;
+  left: auto;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 100%;
+  width: max-content;
+  color: var(--ios-accent);
+  font-size: 1rem;
+  font-weight: 400;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 1;
+}
+.ios-phone-field:not(.is-editing) .ios-row-input {
+  color: transparent;
+  caret-color: transparent;
+}
+.ios-phone-field.is-editing .ios-phone-link,
+.ios-phone-link[hidden] {
+  display: none;
 }
 .ios-when {
   margin-top: 0.15rem;
