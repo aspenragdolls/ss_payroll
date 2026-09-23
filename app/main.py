@@ -14,7 +14,7 @@ from app.template_utils import job_label
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.1.1")
+    app = FastAPI(title="ss_payroll", version="0.1.2")
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -27,10 +27,12 @@ def create_app() -> FastAPI:
     templates.env.globals["static_version"] = app.version
     app.state.templates = templates
 
-    from app.routers import auth, calendar, payroll, workers
+    from app.routers import auth, calendar, customers, events, payroll, workers
 
     app.include_router(auth.router)
     app.include_router(workers.router)
+    app.include_router(customers.router)
+    app.include_router(events.router)
     app.include_router(calendar.router)
     app.include_router(payroll.router)
 

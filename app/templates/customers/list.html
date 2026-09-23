@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Customers — ss_payroll{% endblock %}
+{% block content %}
+<h1>Customers</h1>
+<p>
+  <a class="btn" href="/customers/new">Add Customer</a>
+  <a class="btn btn-secondary" href="/customers/export{% if request.url.query %}?{{ request.url.query }}{% endif %}">Export campaign list</a>
+</p>
+
+<div class="card">
+  <form method="get" action="/customers" class="customer-filters">
+    <div class="filter-grid">
+      <div class="filter-span-2">
+        <label>Search</label>
+        <input type="text" name="q" value="{{ filters.q }}" placeholder="Name, address, phone, email, ZIP">
+      </div>
+
+      <div>
+        <label>1. Location — Neighborhood</label>
+        <select name="neighborhood">
+          <option value="">Any</option>
+          {% for name in neighborhoods %}
+          <option value="{{ name }}" {% if filters.neighborhood == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>ZIP code</label>
+        <input type="text" name="zip_code" value="{{ filters.zip_code }}" placeholder="84106">
+      </div>
+      <div>
+        <label>Map radius — Lat</label>
+        <input type="text" name="radius_lat" value="{{ filters.radius_lat }}" placeholder="40.725">
+      </div>
+      <div>
+        <label>Lng</label>
+        <input type="text" name="radius_lng" value="{{ filters.radius_lng }}" placeholder="-111.860">
+      </div>
+      <div>
+        <label>Miles</label>
+        <input type="text" name="radius_miles" value="{{ filters.radius_miles }}" placeholder="2">
+      </div>
+
+      <div>
+        <label>2. Customer status</label>
+        <select name="status">
+          <option value="">Any</option>
+          {% for value, label in statuses %}
+          <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>3. Last service date</label>
+        <select name="last_service">
+          {% for value, label in last_service_options %}
+          <option value="{{ value }}" {% if filters.last_service == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>4. Revenue</label>
+        <select name="revenue_metric">
+          {% for value, label in revenue_metric_options %}
+          <option value="{{ value }}" {% if filters.revenue_metric == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Min $</label>
+        <input type="text" name="revenue_min" value="{{ filters.revenue_min }}" placeholder="500">
+      </div>
+      <div>
+        <label>Max $</label>
+        <input type="text" name="revenue_max" value="{{ filters.revenue_max }}" placeholder="">
+      </div>
+
+      <div>
+        <label>5. Services purchased</label>
+        <select name="service">
+          <option value="">Any</option>
+          {% for value, label in service_types %}
+          <option value="{{ value }}" {% if filters.service == value %}selected{% endif %}>Has {{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Never purchased</label>
+        <select name="never_service">
+          <option value="">—</option>
+          {% for value, label in service_types %}
+          <option value="{{ value }}" {% if filters.never_service == value %}selected{% endif %}>Never {{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>6. Lead source</label>
+        <select name="lead_source">
+          <option value="">Any</option>
+          {% for value, label in lead_sources %}
+          <option value="{{ value }}" {% if filters.lead_source == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>7. Next service due</label>
+        <select name="next_due">
+          {% for value, label in next_due_options %}
+          <option value="{{ value }}" {% if filters.next_due == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Apply filters</button>
+      {% if filters.has_active() %}
+      <a class="btn btn-secondary" href="/customers">Clear</a>
+      {% endif %}
+      <span style="margin-left:.75rem; color:#64748b">{{ items|length }} customer{{ '' if items|length == 1 else 's' }}</span>
+    </p>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Location</th>
+        <th>Last service</th>
+        <th>Next due</th>
+        <th>Lifetime</th>
+        <th>Source</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.customer.name }}</td>
+        <td>{{ customer_status_label(item.customer) }}</td>
+        <td>
+          {% if item.customer.neighborhood or item.customer.zip_code %}
+            {{ item.customer.neighborhood or '—' }}{% if item.customer.zip_code %} · {{ item.customer.zip_code }}{% endif %}
+          {% else %}
+            {{ item.customer.address or '—' }}
+          {% endif %}
+        </td>
+        <td>{{ item.last_visit or '—' }}</td>
+        <td>{{ item.customer.next_service_due or '—' }}</td>
+        <td>${{ '%.0f'|format(item.lifetime_spend) }}</td>
+        <td>{{ status_label(lead_sources, item.customer.lead_source, '—') }}</td>
+        <td><a href="/customers/{{ item.customer.id }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">No customers match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

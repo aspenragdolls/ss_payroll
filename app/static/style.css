@@ -95,6 +95,25 @@ input, select, textarea {
 }
 .checkbox-row { display: flex; gap: 1rem; align-items: center; margin: .5rem 0; }
 .checkbox-row input { width: auto; max-width: none; }
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+.customer-filters .filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: .75rem 1rem;
+  align-items: end;
+}
+.customer-filters .filter-span-2 { grid-column: 1 / -1; }
+.customer-filters input,
+.customer-filters select { max-width: none; }
+.form-row input,
+.form-row select { max-width: none; }
+@media (min-width: 900px) {
+  .customer-filters .filter-span-2 { grid-column: span 2; }
+}
 nav.steps { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 nav.steps a { padding: .4rem .8rem; background: #e2e8f0; border-radius: 999px; text-decoration: none; color: #334155; }
 nav.steps a.active { background: #2563eb; color: #fff; }
@@ -151,3 +170,255 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
 .pay-override-panel select,
 .pay-override-panel input { max-width: 320px; }
 .pay-field { margin-top: .5rem; }
+
+/* iPhone Safari event entry (Apple Calendar–like) */
+.ios-event-page {
+  background: #000;
+  color: #f5f5f7;
+  min-height: 100vh;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+.ios-event {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 2.5rem;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+}
+.ios-event-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.ios-pill {
+  appearance: none;
+  border: none;
+  background: #2c2c2e;
+  color: #0a84ff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border-radius: 980px;
+  text-decoration: none;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.ios-pill-primary {
+  color: #fff;
+  background: #0a84ff;
+  font-weight: 600;
+}
+.ios-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ios-banner {
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+}
+.ios-banner-error {
+  background: #3a1515;
+  color: #ff6961;
+}
+.ios-banner-ok {
+  background: #0f2a1c;
+  color: #30d158;
+}
+.ios-group {
+  background: #1c1c1e;
+  border-radius: 12px;
+  margin-bottom: 0.85rem;
+  overflow: visible;
+  position: relative;
+}
+.ios-identity {
+  padding: 0.85rem 1rem 1rem;
+}
+.ios-title-input {
+  width: 100%;
+  max-width: none;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.55rem;
+  font-weight: 700;
+  padding: 0.15rem 0;
+  outline: none;
+}
+.ios-location-input {
+  width: 100%;
+  max-width: none;
+  background: transparent;
+  border: none;
+  color: #ff453a;
+  font-size: 1.05rem;
+  padding: 0.35rem 0 0.55rem;
+  outline: none;
+}
+.ios-datetime-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.ios-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  font-weight: 500;
+  color: #8e8e93;
+  font-size: 0.8rem;
+}
+.ios-field input {
+  width: 100%;
+  max-width: none;
+  background: #2c2c2e;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.95rem;
+  color-scheme: dark;
+}
+.ios-title-preview {
+  margin: 0.75rem 0 0;
+  color: #8e8e93;
+  font-size: 0.9rem;
+}
+.ios-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  font-weight: 500;
+  border-bottom: 1px solid #2c2c2e;
+}
+.ios-row:last-child {
+  border-bottom: none;
+}
+.ios-row-static {
+  font-weight: 400;
+}
+.ios-row-label {
+  color: #fff;
+  flex-shrink: 0;
+}
+.ios-row-input {
+  width: auto;
+  max-width: 60%;
+  flex: 1;
+  text-align: right;
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  font-size: 1rem;
+  padding: 0;
+  outline: none;
+  color-scheme: dark;
+}
+.ios-row-input:focus {
+  color: #fff;
+}
+select.ios-row-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%238e8e93' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.1rem center;
+  padding-right: 1rem;
+}
+.ios-row-value {
+  color: #8e8e93;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.ios-cal-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #ffd60a;
+  display: inline-block;
+}
+.ios-section-title {
+  margin: 0;
+  padding: 0.85rem 1rem 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+.ios-notes-stack .ios-row {
+  border-bottom: 1px solid #2c2c2e;
+}
+.ios-notes-field {
+  display: block;
+  margin: 0;
+  padding: 0.5rem 1rem 0.85rem;
+  font-weight: 400;
+}
+.ios-notes-field textarea {
+  width: 100%;
+  max-width: none;
+  background: transparent;
+  border: none;
+  color: #ff453a;
+  font-size: 1rem;
+  resize: vertical;
+  padding: 0.25rem 0;
+  outline: none;
+  min-height: 4.5rem;
+}
+.ios-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.ios-suggest {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  top: 3.1rem;
+  z-index: 20;
+  background: #2c2c2e;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.ios-suggest-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid #3a3a3c;
+  cursor: pointer;
+}
+.ios-suggest-item:last-child {
+  border-bottom: none;
+}
+.ios-suggest-item span {
+  color: #8e8e93;
+  font-size: 0.85rem;
+}
+.ios-suggest-item:active,
+.ios-suggest-item:hover {
+  background: #3a3a3c;
+}

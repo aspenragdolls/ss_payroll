@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }} — ss_payroll{% endblock %}
+{% block content %}
+<h1>{{ customer.name }}</h1>
+<p>
+  <a class="btn" href="/customers/{{ customer.id }}/edit">Edit</a>
+  <a class="btn btn-secondary" href="/customers">Back to list</a>
+</p>
+
+<div class="card">
+  <h2>Profile</h2>
+  <table>
+    <tr><th style="width:10rem">Status</th><td>{{ status_label }}</td></tr>
+    <tr><th>Address</th><td>{{ customer.address or '—' }}</td></tr>
+    <tr><th>Neighborhood</th><td>{{ customer.neighborhood or '—' }}{% if customer.zip_code %} · {{ customer.zip_code }}{% endif %}</td></tr>
+    <tr><th>Map coords</th><td>{% if customer.latitude is not none and customer.longitude is not none %}{{ customer.latitude }}, {{ customer.longitude }}{% else %}—{% endif %}</td></tr>
+    <tr><th>Phone</th><td>{{ customer.phone or '—' }}</td></tr>
+    <tr><th>Email</th><td>{{ customer.email or '—' }}</td></tr>
+    <tr><th>Lead source</th><td>{{ lead_source_label }}</td></tr>
+    <tr><th>Services</th><td>{{ service_labels|join(', ') if service_labels else '—' }}</td></tr>
+    <tr><th>Next service due</th><td>{{ customer.next_service_due or '—' }}</td></tr>
+    <tr><th>Aliases</th><td>{{ customer.aliases or '—' }}</td></tr>
+    <tr><th>Notes</th><td style="white-space:pre-wrap">{{ customer.notes or '—' }}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Marketing preferences</h2>
+  <table>
+    <tr><th style="width:10rem">Email</th><td>{{ 'Allowed' if customer.allow_email else 'Not allowed' }}</td></tr>
+    <tr><th>SMS / phone</th><td>{{ 'Allowed' if customer.allow_sms else 'Not allowed' }}</td></tr>
+    <tr><th>Mail / hangers</th><td>{{ 'Allowed' if customer.allow_mail else 'Not allowed' }}</td></tr>
+    <tr><th>Do not contact</th><td>{{ 'Yes' if customer.do_not_contact else 'No' }}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Visit summary</h2>
+  <table>
+    <tr><th style="width:10rem">Visits</th><td>{{ history.visit_count }}</td></tr>
+    <tr><th>First visit</th><td>{{ history.first_visit or '—' }}</td></tr>
+    <tr><th>Last visit</th><td>{{ history.last_visit or '—' }}</td></tr>
+    <tr><th>Total tickets</th><td>${{ '%.2f'|format(history.total_tickets) }}</td></tr>
+    <tr><th>Total tips</th><td>${{ '%.2f'|format(history.total_tips) }}</td></tr>
+    <tr><th>Cash jobs</th><td>{{ history.cash_jobs }}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Job history</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Service</th>
+        <th>Ticket</th>
+        <th>Tips</th>
+        <th>Cash</th>
+        <th>Payroll</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in history.jobs %}
+      <tr>
+        <td>{{ job.job_date or '—' }}</td>
+        <td>{{ job.service_description or '—' }}</td>
+        <td>{% if job.ticket_price is not none %}${{ '%.2f'|format(job.ticket_price) }}{% else %}—{% endif %}</td>
+        <td>${{ '%.2f'|format(job.tips or 0) }}</td>
+        <td>{{ 'Yes' if job.is_cash else 'No' }}</td>
+        <td><a href="/payroll/{{ job.payroll_batch_id }}/detail">Batch #{{ job.payroll_batch_id }}</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No linked jobs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

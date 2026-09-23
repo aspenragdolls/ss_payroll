@@ -16,6 +16,9 @@ class Job(Base):
     payroll_batch_id: Mapped[int] = mapped_column(
         ForeignKey("payroll_batches.id", ondelete="CASCADE"), index=True
     )
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
     service_description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -32,6 +35,7 @@ class Job(Base):
     )
 
     payroll_batch = relationship("PayrollBatch", back_populates="jobs")
+    customer = relationship("Customer", back_populates="jobs")
     assignments = relationship(
         "JobWorkerAssignment", back_populates="job", cascade="all, delete-orphan"
     )

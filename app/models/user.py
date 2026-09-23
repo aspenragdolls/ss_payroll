@@ -20,6 +20,7 @@ class User(Base):
     )
 
     workers = relationship("Worker", back_populates="user", cascade="all, delete-orphan")
+    customers = relationship("Customer", back_populates="user", cascade="all, delete-orphan")
     payroll_batches = relationship("PayrollBatch", back_populates="user", cascade="all, delete-orphan")
     calendar_connections = relationship(
         "CalendarConnection", back_populates="user", cascade="all, delete-orphan"

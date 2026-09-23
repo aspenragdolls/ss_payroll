@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+  <title>{% if uid %}Edit Event{% else %}New Event{% endif %} — ss_payroll</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
+</head>
+<body class="ios-event-page">
+  <form
+    class="ios-event"
+    method="post"
+    action="{% if uid %}/events/{{ uid }}/edit{% else %}/events/new{% endif %}"
+    id="event-form"
+  >
+    <header class="ios-event-nav">
+      <a class="ios-pill" href="/">{% if uid %}&lt; Events{% else %}Cancel{% endif %}</a>
+      <button type="submit" class="ios-pill ios-pill-primary" {% if not connected %}disabled{% endif %}>
+        <span class="btn-icon" aria-hidden="true"></span>
+        {% if uid %}Done{% else %}Add{% endif %}
+      </button>
+    </header>
+
+    {% if saved %}
+    <p class="ios-banner ios-banner-ok">Saved to Apple Calendar.</p>
+    {% endif %}
+    {% if error %}
+    <p class="ios-banner ios-banner-error">{{ error }}</p>
+    {% endif %}
+
+    <section class="ios-group ios-identity">
+      <input type="hidden" name="customer_id" id="customer_id" value="{{ values.customer_id }}">
+      <label class="ios-sr-only" for="customer_name">Customer</label>
+      <input
+        class="ios-title-input"
+        type="text"
+        name="customer_name"
+        id="customer_name"
+        placeholder="Customer name"
+        autocomplete="off"
+        autocapitalize="words"
+        value="{{ values.customer_name }}"
+        required
+      >
+      <div class="ios-suggest" id="suggest-box" hidden></div>
+      <label class="ios-sr-only" for="address">Location</label>
+      <input
+        class="ios-location-input"
+        type="text"
+        name="address"
+        id="address"
+        placeholder="Address"
+        autocomplete="street-address"
+        value="{{ values.address }}"
+      >
+      <div class="ios-datetime-row">
+        <label class="ios-field">
+          <span>Starts</span>
+          <input type="datetime-local" name="starts_at" id="starts_at" value="{{ values.starts_at }}" required>
+        </label>
+        <label class="ios-field">
+          <span>Ends</span>
+          <input type="datetime-local" name="ends_at" id="ends_at" value="{{ values.ends_at }}" required>
+        </label>
+      </div>
+      <p class="ios-title-preview" id="title-preview">{{ values.title_preview or 'Name ($Price)' }}</p>
+    </section>
+
+    <section class="ios-group">
+      <label class="ios-row">
+        <span class="ios-row-label">Phone</span>
+        <input
+          class="ios-row-input"
+          type="tel"
+          name="phone"
+          id="phone"
+          inputmode="tel"
+          placeholder="801-555-0100"
+          value="{{ values.phone }}"
+        >
+      </label>
+    </section>
+
+    <section class="ios-group">
+      <div class="ios-row ios-row-static">
+        <span class="ios-row-label">Calendar</span>
+        <span class="ios-row-value"><span class="ios-cal-dot"></span>{{ calendar_name }}</span>
+      </div>
+    </section>
+
+    <section class="ios-group ios-notes-stack">
+      <h2 class="ios-section-title">Notes</h2>
+
+      <label class="ios-row">
+        <span class="ios-row-label">Classification</span>
+        <select class="ios-row-input" name="classification" id="classification">
+          {% for value, label in classifications %}
+          <option value="{{ value }}" {% if values.classification == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="ios-row" id="scope-row" {% if values.classification != 'windows' %}hidden{% endif %}>
+        <span class="ios-row-label">Service</span>
+        <select class="ios-row-input" name="service_scope" id="service_scope">
+          {% for value, label in service_scopes %}
+          <option value="{{ value }}" {% if values.service_scope == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="ios-row">
+        <span class="ios-row-label">Job price</span>
+        <input
+          class="ios-row-input"
+          type="text"
+          name="price"
+          id="price"
+          inputmode="decimal"
+          placeholder="322"
+          value="{{ values.price }}"
+        >
+      </label>
+
+      <label class="ios-notes-field">
+        <span class="ios-sr-only">Additional notes</span>
+        <textarea
+          name="free_note"
+          id="free_note"
+          rows="3"
+          placeholder="Gate code, dogs, extras…"
+        >{{ values.free_note }}</textarea>
+      </label>
+    </section>
+  </form>
+
+  <script>
+  (function () {
+    const nameInput = document.getElementById("customer_name");
+    const customerId = document.getElementById("customer_id");
+    const addressInput = document.getElementById("address");
+    const phoneInput = document.getElementById("phone");
+    const priceInput = document.getElementById("price");
+    const classification = document.getElementById("classification");
+    const scopeRow = document.getElementById("scope-row");
+    const scopeSelect = document.getElementById("service_scope");
+    const preview = document.getElementById("title-preview");
+    const suggestBox = document.getElementById("suggest-box");
+    let timer = null;
+    let suppressSuggest = false;
+
+    function formatPrice(raw) {
+      const cleaned = String(raw || "").replace(/[^0-9.]/g, "");
+      if (!cleaned) return "";
+      const num = Number(cleaned);
+      if (Number.isNaN(num)) return "";
+      return Number.isInteger(num) ? "$" + num : "$" + num.toFixed(2);
+    }
+
+    function updatePreview() {
+      const name = (nameInput.value || "").trim();
+      const price = formatPrice(priceInput.value);
+      if (name && price) preview.textContent = name + " (" + price + ")";
+      else if (name) preview.textContent = name;
+      else preview.textContent = "Name ($Price)";
+    }
+
+    function toggleScope() {
+      const show = classification.value === "windows";
+      scopeRow.hidden = !show;
+      if (show && !scopeSelect.value) scopeSelect.value = "inside_and_outside";
+    }
+
+    function hideSuggest() {
+      suggestBox.hidden = true;
+      suggestBox.innerHTML = "";
+    }
+
+    function applyCustomer(item) {
+      suppressSuggest = true;
+      customerId.value = item.id;
+      nameInput.value = item.name || "";
+      addressInput.value = item.address || "";
+      phoneInput.value = item.phone || "";
+      if (item.usual_price) priceInput.value = item.usual_price;
+      if (item.service_scope) {
+        classification.value = "windows";
+        scopeSelect.value = item.service_scope;
+      } else if ((item.services || []).includes("gutters")) {
+        classification.value = "gutters";
+      } else if (item.status === "estimate" || item.status === "quoted") {
+        classification.value = "estimate";
+      }
+      toggleScope();
+      updatePreview();
+      hideSuggest();
+      setTimeout(function () { suppressSuggest = false; }, 0);
+    }
+
+    async function runSuggest() {
+      const q = nameInput.value.trim();
+      if (suppressSuggest || q.length < 2) {
+        hideSuggest();
+        return;
+      }
+      try {
+        const res = await fetch("/api/customers/suggest?q=" + encodeURIComponent(q));
+        if (!res.ok) return;
+        const items = await res.json();
+        if (!items.length) {
+          hideSuggest();
+          return;
+        }
+        suggestBox.innerHTML = items.map(function (item) {
+          return '<button type="button" class="ios-suggest-item" data-id="' + item.id + '">' +
+            '<strong>' + escapeHtml(item.name) + '</strong>' +
+            '<span>' + escapeHtml(item.address || item.phone || "") + '</span></button>';
+        }).join("");
+        suggestBox.hidden = false;
+        Array.from(suggestBox.querySelectorAll(".ios-suggest-item")).forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const id = Number(btn.getAttribute("data-id"));
+            const item = items.find(function (row) { return row.id === id; });
+            if (item) applyCustomer(item);
+          });
+        });
+      } catch (e) {
+        hideSuggest();
+      }
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    nameInput.addEventListener("input", function () {
+      customerId.value = "";
+      updatePreview();
+      clearTimeout(timer);
+      timer = setTimeout(runSuggest, 180);
+    });
+    priceInput.addEventListener("input", updatePreview);
+    classification.addEventListener("change", toggleScope);
+    document.addEventListener("click", function (ev) {
+      if (!suggestBox.contains(ev.target) && ev.target !== nameInput) hideSuggest();
+    });
+
+    toggleScope();
+    updatePreview();
+  })();
+  </script>
+</body>
+</html>

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import uuid
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import unquote, urljoin
 
 import httpx
-from icalendar import Calendar
+from icalendar import Calendar, Event, vText
 
 from app.services.schemas import RawCalendarEvent
 
@@ -19,6 +20,10 @@ NS = {
 
 
 class CalendarFetchError(Exception):
+    pass
+
+
+class CalendarWriteError(CalendarFetchError):
     pass
 
 
@@ -111,27 +116,21 @@ def _calendar_query_body(start: date, end: date) -> str:
 </C:calendar-query>"""
 
 
-async def fetch_apple_calendar_events(
-    apple_id: str,
-    app_password: str,
-    calendar_name: str,
-    start: date,
-    end: date,
-) -> list[RawCalendarEvent]:
-    auth = httpx.BasicAuth(apple_id, app_password)
-    principal_body = """<?xml version="1.0" encoding="utf-8" ?>
+_PRINCIPAL_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:">
   <D:prop>
     <D:current-user-principal />
   </D:prop>
 </D:propfind>"""
-    home_body = """<?xml version="1.0" encoding="utf-8" ?>
+
+_HOME_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop>
     <C:calendar-home-set />
   </D:prop>
 </D:propfind>"""
-    list_calendars_body = """<?xml version="1.0" encoding="utf-8" ?>
+
+_LIST_CALENDARS_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
   <D:prop>
     <D:displayname />
@@ -139,32 +138,96 @@ async def fetch_apple_calendar_events(
   </D:prop>
 </D:propfind>"""
 
-    async with httpx.AsyncClient(auth=auth, timeout=30.0, follow_redirects=True) as client:
+
+async def _resolve_calendar_urls(
+    client: httpx.AsyncClient,
+    calendar_name: str,
+) -> list[str]:
+    principal_root = await _propfind(client, ICLOUD_BASE, _PRINCIPAL_BODY)
+    principal_href = _find_first_href(principal_root, "D", "current-user-principal")
+    if not principal_href:
+        raise CalendarFetchError("Could not locate your iCloud calendar account.")
+
+    principal_url = urljoin(ICLOUD_BASE, principal_href)
+    home_root = await _propfind(client, principal_url, _HOME_BODY)
+    home_href = _find_first_href(home_root, "C", "calendar-home-set")
+    if not home_href:
+        raise CalendarFetchError("Could not locate your iCloud calendars.")
+
+    home_url = urljoin(ICLOUD_BASE, home_href)
+    calendars_root = await _propfind(client, home_url, _LIST_CALENDARS_BODY, depth="1")
+    calendar_hrefs = _find_all_calendar_hrefs(calendars_root, calendar_name)
+    if not calendar_hrefs:
+        raise CalendarFetchError(
+            f'Calendar "{calendar_name}" was not found in your iCloud account.'
+        )
+    return [urljoin(home_url, href) for href in calendar_hrefs]
+
+
+def _auth_client(apple_id: str, app_password: str) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        auth=httpx.BasicAuth(apple_id, app_password),
+        timeout=30.0,
+        follow_redirects=True,
+    )
+
+
+def _map_http_error(exc: Exception, *, write: bool = False) -> CalendarFetchError:
+    action = "write" if write else "fetch"
+    if isinstance(exc, httpx.HTTPStatusError):
+        if exc.response.status_code in (401, 403):
+            return CalendarFetchError(
+                "Could not sign in to iCloud. Check your Apple ID and app-specific password."
+            )
+        return CalendarWriteError(f"Failed to {action} calendar events on iCloud.") if write else CalendarFetchError(
+            "Failed to fetch calendar events from iCloud."
+        )
+    if isinstance(exc, httpx.HTTPError):
+        return CalendarFetchError("Could not reach iCloud calendar service.")
+    return CalendarFetchError(str(exc))
+
+
+def _build_vevent_ics(
+    *,
+    uid: str,
+    title: str,
+    description: str,
+    location: str,
+    start: datetime,
+    end: datetime,
+) -> bytes:
+    calendar = Calendar()
+    calendar.add("prodid", "-//ss_payroll//EN")
+    calendar.add("version", "2.0")
+    event = Event()
+    event.add("uid", uid)
+    event.add("summary", title)
+    if description:
+        event.add("description", description)
+    if location:
+        event.add("location", location)
+    event.add("dtstart", start)
+    event.add("dtend", end)
+    event.add("dtstamp", datetime.now(timezone.utc))
+    event.add("transp", vText("OPAQUE"))
+    calendar.add_component(event)
+    return calendar.to_ical()
+
+
+async def fetch_apple_calendar_events(
+    apple_id: str,
+    app_password: str,
+    calendar_name: str,
+    start: date,
+    end: date,
+) -> list[RawCalendarEvent]:
+    async with _auth_client(apple_id, app_password) as client:
         try:
-            principal_root = await _propfind(client, ICLOUD_BASE, principal_body)
-            principal_href = _find_first_href(principal_root, "D", "current-user-principal")
-            if not principal_href:
-                raise CalendarFetchError("Could not locate your iCloud calendar account.")
-
-            principal_url = urljoin(ICLOUD_BASE, principal_href)
-            home_root = await _propfind(client, principal_url, home_body)
-            home_href = _find_first_href(home_root, "C", "calendar-home-set")
-            if not home_href:
-                raise CalendarFetchError("Could not locate your iCloud calendars.")
-
-            home_url = urljoin(ICLOUD_BASE, home_href)
-            calendars_root = await _propfind(client, home_url, list_calendars_body, depth="1")
-            calendar_hrefs = _find_all_calendar_hrefs(calendars_root, calendar_name)
-            if not calendar_hrefs:
-                raise CalendarFetchError(
-                    f'Calendar "{calendar_name}" was not found in your iCloud account.'
-                )
-
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
             query_body = _calendar_query_body(start, end)
             all_events: list[RawCalendarEvent] = []
             seen_ids: set[str] = set()
-            for calendar_href in calendar_hrefs:
-                calendar_url = urljoin(home_url, calendar_href)
+            for calendar_url in calendar_urls:
                 events_root = await _report(client, calendar_url, query_body)
                 calendar_events = _parse_calendar_report(events_root, start)
                 for event in calendar_events:
@@ -172,17 +235,117 @@ async def fetch_apple_calendar_events(
                         continue
                     seen_ids.add(event.event_id)
                     all_events.append(event)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code in (401, 403):
-                raise CalendarFetchError(
-                    "Could not sign in to iCloud. Check your Apple ID and app-specific password."
-                ) from exc
-            raise CalendarFetchError("Failed to fetch calendar events from iCloud.") from exc
+        except CalendarFetchError:
+            raise
         except httpx.HTTPError as exc:
-            raise CalendarFetchError("Could not reach iCloud calendar service.") from exc
+            raise _map_http_error(exc) from exc
 
     all_events.sort(key=lambda event: event.start)
     return all_events
+
+
+async def create_apple_calendar_event(
+    apple_id: str,
+    app_password: str,
+    calendar_name: str,
+    *,
+    title: str,
+    description: str,
+    location: str,
+    start: datetime,
+    end: datetime,
+    uid: str | None = None,
+) -> RawCalendarEvent:
+    event_uid = uid or str(uuid.uuid4())
+    ics = _build_vevent_ics(
+        uid=event_uid,
+        title=title,
+        description=description,
+        location=location,
+        start=start,
+        end=end,
+    )
+    async with _auth_client(apple_id, app_password) as client:
+        try:
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            calendar_url = calendar_urls[0]
+            if not calendar_url.endswith("/"):
+                calendar_url += "/"
+            event_url = urljoin(calendar_url, f"{event_uid}.ics")
+            response = await client.put(
+                event_url,
+                content=ics,
+                headers={"Content-Type": "text/calendar; charset=utf-8"},
+            )
+            if response.status_code not in (200, 201, 204):
+                response.raise_for_status()
+        except CalendarFetchError:
+            raise
+        except httpx.HTTPError as exc:
+            raise _map_http_error(exc, write=True) from exc
+
+    return RawCalendarEvent(
+        event_id=event_uid,
+        title=title,
+        description=description,
+        location=location,
+        start=start if start.tzinfo else start.replace(tzinfo=timezone.utc),
+        end=end if end.tzinfo else end.replace(tzinfo=timezone.utc),
+        raw_text="\n".join(part for part in (title, location, description) if part),
+    )
+
+
+async def update_apple_calendar_event(
+    apple_id: str,
+    app_password: str,
+    calendar_name: str,
+    uid: str,
+    *,
+    title: str,
+    description: str,
+    location: str,
+    start: datetime,
+    end: datetime,
+) -> RawCalendarEvent:
+    return await create_apple_calendar_event(
+        apple_id,
+        app_password,
+        calendar_name,
+        title=title,
+        description=description,
+        location=location,
+        start=start,
+        end=end,
+        uid=uid,
+    )
+
+
+async def get_apple_calendar_event(
+    apple_id: str,
+    app_password: str,
+    calendar_name: str,
+    uid: str,
+) -> RawCalendarEvent | None:
+    async with _auth_client(apple_id, app_password) as client:
+        try:
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            for calendar_url in calendar_urls:
+                if not calendar_url.endswith("/"):
+                    calendar_url += "/"
+                event_url = urljoin(calendar_url, f"{uid}.ics")
+                response = await client.get(event_url)
+                if response.status_code == 404:
+                    continue
+                response.raise_for_status()
+                calendar = Calendar.from_ical(response.content)
+                for component in calendar.walk("VEVENT"):
+                    event_uid = str(component.get("uid", uid))
+                    return _event_to_raw(event_uid, component, date.today())
+        except CalendarFetchError:
+            raise
+        except httpx.HTTPError as exc:
+            raise _map_http_error(exc) from exc
+    return None
 
 
 def _is_calendar_collection(response: ET.Element) -> bool:

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{% if customer %}Edit{% else %}New{% endif %} Customer — ss_payroll{% endblock %}
+{% block content %}
+<h1>{% if customer %}Edit Customer{% else %}New Customer{% endif %}</h1>
+{% if error %}<p style="color:#dc2626">{{ error }}</p>{% endif %}
+<div class="card">
+  <form method="post">
+    <label>Name</label>
+    <input type="text" name="name" value="{{ customer.name if customer else '' }}" required>
+
+    <label>Address</label>
+    <input type="text" name="address" value="{{ customer.address if customer and customer.address else '' }}">
+
+    <div class="form-row">
+      <div>
+        <label>Neighborhood</label>
+        <select name="neighborhood">
+          <option value="">—</option>
+          {% for name in neighborhoods %}
+          <option value="{{ name }}" {% if customer and customer.neighborhood == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>ZIP code</label>
+        <input type="text" name="zip_code" value="{{ customer.zip_code if customer and customer.zip_code else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div>
+        <label>Latitude</label>
+        <input type="text" name="latitude" value="{{ customer.latitude if customer and customer.latitude is not none else '' }}" placeholder="Optional for map radius">
+      </div>
+      <div>
+        <label>Longitude</label>
+        <input type="text" name="longitude" value="{{ customer.longitude if customer and customer.longitude is not none else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div>
+        <label>Phone</label>
+        <input type="text" name="phone" value="{{ customer.phone if customer and customer.phone else '' }}">
+      </div>
+      <div>
+        <label>Email</label>
+        <input type="email" name="email" value="{{ customer.email if customer and customer.email else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div>
+        <label>Customer status</label>
+        <select name="status">
+          {% for value, label in statuses %}
+          <option value="{{ value }}" {% if (customer.status if customer else 'active') == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Lead source</label>
+        <select name="lead_source">
+          <option value="">—</option>
+          {% for value, label in lead_sources %}
+          <option value="{{ value }}" {% if customer and customer.lead_source == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Next service due</label>
+        <input type="date" name="next_service_due" value="{{ customer.next_service_due if customer and customer.next_service_due else '' }}">
+      </div>
+    </div>
+
+    <label>Services purchased</label>
+    <div class="checkbox-row" style="flex-wrap:wrap">
+      {% for value, label in service_types %}
+      <label><input type="checkbox" name="services" value="{{ value }}" {% if value in selected_services %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </div>
+
+    <label>Aliases</label>
+    <input type="text" name="aliases" value="{{ customer.aliases if customer and customer.aliases else '' }}" placeholder="Other names, separated by semicolons">
+
+    <label>Notes</label>
+    <textarea name="notes" rows="4">{{ customer.notes if customer and customer.notes else '' }}</textarea>
+
+    <h2 style="margin-top:1.25rem; font-size:1.05rem">Marketing contact preferences</h2>
+    <p style="color:#64748b; margin:.25rem 0 .75rem">Used when exporting campaign lists.</p>
+    <div class="checkbox-row" style="flex-wrap:wrap">
+      <label><input type="checkbox" name="allow_email" value="on" {% if not customer or customer.allow_email %}checked{% endif %}> Allow email</label>
+      <label><input type="checkbox" name="allow_sms" value="on" {% if not customer or customer.allow_sms %}checked{% endif %}> Allow SMS / phone</label>
+      <label><input type="checkbox" name="allow_mail" value="on" {% if not customer or customer.allow_mail %}checked{% endif %}> Allow mail / hangers</label>
+      <label><input type="checkbox" name="do_not_contact" value="on" {% if customer and customer.do_not_contact %}checked{% endif %}> Do not contact</label>
+    </div>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Save</button>
+      {% if customer %}
+      <a class="btn btn-secondary" href="/customers/{{ customer.id }}">Cancel</a>
+      {% else %}
+      <a class="btn btn-secondary" href="/customers">Cancel</a>
+      {% endif %}
+    </p>
+  </form>
+</div>
+{% endblock %}
