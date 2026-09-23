@@ -24,7 +24,7 @@
     </div>
     <div class="customers-page-actions">
       <a class="btn" href="/customers/new">Add Customer</a>
-      <a class="btn btn-secondary" href="/customers/export{% if request.url.query %}?{{ request.url.query }}{% endif %}">Export</a>
+      <a class="btn btn-secondary" href="/customers/export{% if request.url.query %}?{{ request.url.query }}{% endif %}" hx-boost="false">Export</a>
     </div>
   </div>
 

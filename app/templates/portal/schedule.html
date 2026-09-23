@@ -3,7 +3,7 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
   <h1>Schedule with {{ business.business_name }}</h1>
-  <form action="/portal/logout" method="post"><button class="btn btn-secondary" type="submit">Log out</button></form>
+  <form action="/portal/logout" method="post" hx-boost="false"><button class="btn btn-secondary" type="submit">Log out</button></form>
 </div>
 <p>Signed in as {{ account.email }} — {{ customer.name }}</p>
 {% if error %}<div class="error">{{ error }}</div>{% endif %}

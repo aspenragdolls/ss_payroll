@@ -73,6 +73,12 @@
   }
 
   function initRow(row) {
+    if (row.dataset.assignBound === "1") {
+      updatePayFields(row);
+      return;
+    }
+    row.dataset.assignBound = "1";
+
     const checkbox = row.querySelector(".labor-checkbox");
     const payType = row.querySelector(".pay-type-select");
     const rateInput = row.querySelector(".hourly-rate-input");
@@ -106,7 +112,14 @@
     updatePayFields(row);
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function bootAssign() {
     document.querySelectorAll(".labor-assignment").forEach(initRow);
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootAssign);
+  } else {
+    bootAssign();
+  }
+  document.body.addEventListener("htmx:afterSettle", bootAssign);
 })();
