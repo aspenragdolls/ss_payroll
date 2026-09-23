@@ -219,7 +219,7 @@
     {% if job_timer.status == 'in_progress' %}
     <p class="ios-job-timer-status">Started at {{ job_timer.started_label }}</p>
     {% endif %}
-    <div class="ios-job-timer-actions">
+    <div class="ios-job-timer-actions{% if job_timer.status != 'in_progress' %} ios-job-timer-actions-single{% endif %}">
       <form method="post" action="/events/{{ uid }}/job/start" class="ios-job-timer-form">
         <button type="submit" class="ios-job-btn ios-job-btn-start">
           {% if job_timer.status == 'in_progress' %}Restart Job{% else %}Start Job{% endif %}

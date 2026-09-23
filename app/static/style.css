@@ -679,7 +679,10 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: var(--step-disabled
   opacity: 0.75;
 }
 .ios-job-timer {
-  margin: 0 auto 0.5rem;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.85rem auto 0.35rem;
   padding: 0 0.25rem;
   max-width: 430px;
 }
@@ -691,20 +694,40 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: var(--step-disabled
 }
 .ios-job-timer-actions {
   display: flex;
+  flex-direction: row;
+  justify-content: stretch;
+  align-items: stretch;
   gap: 0.65rem;
+  width: 100%;
+}
+.ios-job-timer-actions-single {
+  flex-direction: column;
 }
 .ios-job-timer-form {
-  flex: 1;
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
   margin: 0;
+  min-width: 0;
 }
 .ios-job-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 100%;
+  min-height: 3.4rem;
   border: 0;
   border-radius: 12px;
-  font-size: 1.05rem;
+  font-family: inherit;
+  font-size: 1.2rem;
   font-weight: 600;
-  padding: 0.95rem 1rem;
+  line-height: 1.2;
+  padding: 1.05rem 1.25rem;
   cursor: pointer;
+  text-align: center;
 }
 .ios-job-btn:active {
   opacity: 0.8;
