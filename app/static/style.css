@@ -678,6 +678,49 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: var(--step-disabled
 .ios-delete-btn:active {
   opacity: 0.75;
 }
+.ios-job-timer {
+  margin: 0 auto 0.5rem;
+  padding: 0 0.25rem;
+  max-width: 430px;
+}
+.ios-job-timer-status {
+  margin: 0 0 0.55rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--ios-fg-secondary);
+}
+.ios-job-timer-actions {
+  display: flex;
+  gap: 0.65rem;
+}
+.ios-job-timer-form {
+  flex: 1;
+  margin: 0;
+}
+.ios-job-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+}
+.ios-job-btn:active {
+  opacity: 0.8;
+}
+.ios-job-btn-start {
+  background: var(--ios-accent);
+  color: var(--ios-accent-fg);
+}
+.ios-job-btn-finish {
+  background: var(--ios-success-fg);
+  color: #fff;
+}
+.ios-event-page[data-theme="dark"] .ios-job-btn-finish {
+  background: var(--ios-success-fg);
+  color: #000;
+}
 .ios-group {
   background: var(--ios-group-bg);
   border-radius: 12px;

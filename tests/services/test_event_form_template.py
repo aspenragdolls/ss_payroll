@@ -3,6 +3,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.services.event_format import CLASSIFICATIONS, SERVICE_SCOPES
+from app.services.job_timer_service import job_timer_view
 
 
 def test_event_form_template_is_iphone_oriented():
@@ -21,6 +22,8 @@ def test_event_form_template_is_iphone_oriented():
         connected=True,
         saved=False,
         error=None,
+        job_message=None,
+        job_timer=job_timer_view(None),
         values={
             "customer_id": "",
             "customer_name": "Parks Mangelson",
@@ -71,6 +74,8 @@ def test_event_edit_done_skips_save_when_unchanged():
         connected=True,
         saved=False,
         error=None,
+        job_message=None,
+        job_timer=job_timer_view(None),
         values={
             "customer_id": "1",
             "customer_name": "Parks Mangelson",
@@ -89,3 +94,5 @@ def test_event_edit_done_skips_save_when_unchanged():
     assert 'window.location.href = "/events"' in html
     assert "snapshotForm" in html
     assert "Done" in html
+    assert "Start Job" in html
+    assert "Job Duration" in html

@@ -69,6 +69,9 @@
     {% if saved %}
     <p class="ios-banner ios-banner-ok">Saved to Apple Calendar.</p>
     {% endif %}
+    {% if job_message %}
+    <p class="ios-banner ios-banner-ok">{{ job_message }}</p>
+    {% endif %}
     {% if error %}
     <p class="ios-banner ios-banner-error">{{ error }}</p>
     {% endif %}
@@ -184,6 +187,21 @@
         >
       </label>
 
+      {% if uid %}
+      <div class="ios-row ios-row-static">
+        <span class="ios-row-label">Job Duration</span>
+        <span class="ios-row-value" id="job-duration-value">
+          {% if job_timer.status == 'finished' and job_timer.duration_label %}
+          {{ job_timer.duration_label }}
+          {% elif job_timer.status == 'in_progress' %}
+          In progress
+          {% else %}
+          —
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+
       <label class="ios-notes-field">
         <span class="ios-sr-only">Additional notes</span>
         <textarea
@@ -195,6 +213,26 @@
       </label>
     </section>
   </form>
+
+  {% if uid and connected %}
+  <section class="ios-job-timer" aria-label="Job timer">
+    {% if job_timer.status == 'in_progress' %}
+    <p class="ios-job-timer-status">Started at {{ job_timer.started_label }}</p>
+    {% endif %}
+    <div class="ios-job-timer-actions">
+      <form method="post" action="/events/{{ uid }}/job/start" class="ios-job-timer-form">
+        <button type="submit" class="ios-job-btn ios-job-btn-start">
+          {% if job_timer.status == 'in_progress' %}Restart Job{% else %}Start Job{% endif %}
+        </button>
+      </form>
+      {% if job_timer.status == 'in_progress' %}
+      <form method="post" action="/events/{{ uid }}/job/finish" class="ios-job-timer-form">
+        <button type="submit" class="ios-job-btn ios-job-btn-finish">Finish</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
   {% if uid and connected %}
   <form method="post" action="/events/{{ uid }}/delete" class="ios-delete-wrap" onsubmit="return confirm('Delete this event from Apple Calendar?');">

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, Query, Request
@@ -25,6 +26,12 @@ from app.services.customer_service import (
     get_customer_by_calendar_uid,
     suggest_customers,
     upsert_customer_from_event,
+)
+from app.services.job_timer_service import (
+    JobTimerError,
+    finish_job_for_event,
+    job_timer_view,
+    start_job_for_event,
 )
 from app.services.event_format import (
     CLASSIFICATIONS,
@@ -136,6 +143,12 @@ async def customers_suggest(
     )
 
 
+def _job_timer_for_uid(db: Session, user_id: int, uid: str | None):
+    if not uid:
+        return job_timer_view(None)
+    return job_timer_view(get_customer_by_calendar_uid(db, user_id, uid))
+
+
 def _template_context(
     request: Request,
     user: User,
@@ -147,6 +160,8 @@ def _template_context(
     error: str | None = None,
     saved: bool = False,
     deleted: bool = False,
+    job_timer=None,
+    job_message: str | None = None,
 ) -> dict:
     return {
         "request": request,
@@ -160,6 +175,8 @@ def _template_context(
         "connected": connected,
         "saved": saved,
         "deleted": deleted,
+        "job_timer": job_timer if job_timer is not None else job_timer_view(None),
+        "job_message": job_message,
     }
 
 
@@ -245,6 +262,7 @@ async def new_event_form(
             error=None
             if conn
             else "Apple Calendar is not connected. Connect it under Settings → Calendar.",
+            job_timer=job_timer_view(None),
         ),
     )
 
@@ -359,20 +377,20 @@ async def edit_event_form(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     saved: str | None = None,
+    job: str | None = None,
+    job_error: str | None = None,
 ):
     conn = get_active_connection(db, user.id)
     values = _form_defaults()
     error = None if conn else "Apple Calendar is not connected."
+    linked = get_customer_by_calendar_uid(db, user.id, uid) if conn else None
     if conn:
         try:
             event = await get_event_for_user(db, user.id, uid)
             if event:
                 parsed = parse_event_for_app(event)
-                customer_id = ""
-                linked = get_customer_by_calendar_uid(db, user.id, uid)
-                if linked:
-                    customer_id = str(linked.id)
-                else:
+                customer_id = str(linked.id) if linked else ""
+                if not customer_id:
                     matches = suggest_customers(db, user.id, parsed["customer_name"], limit=1)
                     if (
                         matches
@@ -386,6 +404,19 @@ async def edit_event_form(
         except (CalendarFetchError, CalendarWriteError) as exc:
             error = str(exc)
 
+    job_message = None
+    if job == "started":
+        job_message = "Job started. Hit Finish when the crew is done."
+    elif job == "finished":
+        timer = job_timer_view(linked)
+        job_message = (
+            f"Job finished. Duration: {timer.duration_label}."
+            if timer.duration_label
+            else "Job finished."
+        )
+    elif job_error:
+        error = job_error
+
     return request.app.state.templates.TemplateResponse(
         request,
         "events/form.html",
@@ -398,6 +429,8 @@ async def edit_event_form(
             connected=conn is not None,
             error=error,
             saved=saved == "1",
+            job_timer=job_timer_view(linked),
+            job_message=job_message,
         ),
     )
 
@@ -446,6 +479,7 @@ async def update_event(
                 calendar_name=conn.calendar_id if conn else "Work",
                 connected=conn is not None,
                 error=message,
+                job_timer=_job_timer_for_uid(db, user.id, uid),
             ),
         )
 
@@ -499,6 +533,38 @@ async def update_event(
         return fail(str(exc))
 
     return RedirectResponse("/events?saved=1", status_code=303)
+
+
+@router.post("/events/{uid}/job/start")
+async def start_job_timer(
+    uid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        start_job_for_event(db, user.id, uid)
+    except JobTimerError as exc:
+        return RedirectResponse(
+            f"/events/{uid}/edit?job_error={quote(str(exc))}",
+            status_code=303,
+        )
+    return RedirectResponse(f"/events/{uid}/edit?job=started", status_code=303)
+
+
+@router.post("/events/{uid}/job/finish")
+async def finish_job_timer(
+    uid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        finish_job_for_event(db, user.id, uid)
+    except JobTimerError as exc:
+        return RedirectResponse(
+            f"/events/{uid}/edit?job_error={quote(str(exc))}",
+            status_code=303,
+        )
+    return RedirectResponse(f"/events/{uid}/edit?job=finished", status_code=303)
 
 
 @router.post("/events/{uid}/delete")
