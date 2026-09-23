@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -87,6 +88,41 @@ NEXT_DUE_OPTIONS = (
     ("no_schedule", "No schedule"),
 )
 
+SORT_OPTIONS = (
+    ("name", "Name"),
+    ("status", "Status"),
+    ("neighborhood", "Location"),
+    ("last_service", "Last service"),
+    ("next_due", "Next due"),
+    ("lifetime_spend", "Revenue"),
+    ("lead_source", "Lead source"),
+)
+
+SORT_DIRS = (
+    ("asc", "Ascending"),
+    ("desc", "Descending"),
+)
+
+_VALID_SORTS = {key for key, _ in SORT_OPTIONS}
+_VALID_SORT_DIRS = {key for key, _ in SORT_DIRS}
+_FILTER_QUERY_KEYS = (
+    "q",
+    "neighborhood",
+    "zip_code",
+    "radius_lat",
+    "radius_lng",
+    "radius_miles",
+    "status",
+    "last_service",
+    "revenue_metric",
+    "revenue_min",
+    "revenue_max",
+    "service",
+    "never_service",
+    "lead_source",
+    "next_due",
+)
+
 _SERVICE_ALIASES = {
     "windows": ("window", "windows", "int/ext", "interior", "exterior"),
     "gutters": ("gutter", "gutters"),
@@ -115,25 +151,98 @@ class CustomerListFilters:
     never_service: str = ""
     lead_source: str = ""
     next_due: str = ""
+    sort: str = "name"
+    sort_dir: str = "asc"
+
+    def normalized_sort(self) -> str:
+        key = (self.sort or "name").strip()
+        return key if key in _VALID_SORTS else "name"
+
+    def normalized_sort_dir(self) -> str:
+        direction = (self.sort_dir or "asc").strip().lower()
+        return direction if direction in _VALID_SORT_DIRS else "asc"
 
     def has_active(self) -> bool:
-        return any(
-            [
-                self.q.strip(),
-                self.neighborhood.strip(),
-                self.zip_code.strip(),
-                self.radius_lat.strip() and self.radius_lng.strip() and self.radius_miles.strip(),
-                self.status.strip(),
-                self.last_service.strip(),
-                self.revenue_metric.strip(),
-                self.revenue_min.strip(),
-                self.revenue_max.strip(),
-                self.service.strip(),
-                self.never_service.strip(),
-                self.lead_source.strip(),
-                self.next_due.strip(),
-            ]
-        )
+        return self.active_filter_count() > 0
+
+    def has_advanced(self) -> bool:
+        return self.advanced_filter_count() > 0
+
+    def active_filter_count(self) -> int:
+        return self._quick_filter_count() + self.advanced_filter_count()
+
+    def advanced_filter_count(self) -> int:
+        count = 0
+        if self.zip_code.strip():
+            count += 1
+        if self.radius_lat.strip() and self.radius_lng.strip() and self.radius_miles.strip():
+            count += 1
+        if self.last_service.strip():
+            count += 1
+        if self.revenue_metric.strip() or self.revenue_min.strip() or self.revenue_max.strip():
+            count += 1
+        if self.service.strip():
+            count += 1
+        if self.never_service.strip():
+            count += 1
+        if self.lead_source.strip():
+            count += 1
+        return count
+
+    def _quick_filter_count(self) -> int:
+        count = 0
+        if self.q.strip():
+            count += 1
+        if self.neighborhood.strip():
+            count += 1
+        if self.status.strip():
+            count += 1
+        if self.next_due.strip():
+            count += 1
+        return count
+
+    def query_params(
+        self,
+        *,
+        sort: str | None = None,
+        sort_dir: str | None = None,
+        omit: set[str] | frozenset[str] | None = None,
+    ) -> dict[str, str]:
+        omit_keys = set(omit or ())
+        params: dict[str, str] = {}
+        for key in _FILTER_QUERY_KEYS:
+            if key in omit_keys:
+                continue
+            value = str(getattr(self, key, "") or "").strip()
+            if value:
+                params[key] = value
+
+        sort_value = self.normalized_sort() if sort is None else sort
+        if sort_value not in _VALID_SORTS:
+            sort_value = "name"
+        sort_dir_value = self.normalized_sort_dir() if sort_dir is None else sort_dir
+        if sort_dir_value not in _VALID_SORT_DIRS:
+            sort_dir_value = "asc"
+
+        if "sort" not in omit_keys and sort_value != "name":
+            params["sort"] = sort_value
+        if "sort_dir" not in omit_keys and sort_dir_value != "asc":
+            params["sort_dir"] = sort_dir_value
+        return params
+
+    def as_query(
+        self,
+        *,
+        sort: str | None = None,
+        sort_dir: str | None = None,
+        omit: set[str] | frozenset[str] | None = None,
+    ) -> str:
+        return urlencode(self.query_params(sort=sort, sort_dir=sort_dir, omit=omit))
+
+    def sort_toggle_dir(self, column: str) -> str:
+        if self.normalized_sort() == column and self.normalized_sort_dir() == "asc":
+            return "desc"
+        return "asc"
 
 
 @dataclass
@@ -202,6 +311,63 @@ def _service_job_match(service_key: str):
     return or_(
         *[Job.service_description.ilike(f"%{alias}%") for alias in aliases],
         *[Job.source_text.ilike(f"%{alias}%") for alias in aliases],
+    )
+
+
+def _sort_customers(
+    items: list[CustomerListItem],
+    *,
+    sort: str,
+    sort_dir: str,
+) -> list[CustomerListItem]:
+    reverse = sort_dir == "desc"
+
+    if sort == "lifetime_spend":
+        return sorted(items, key=lambda item: item.lifetime_spend, reverse=reverse)
+
+    if sort == "status":
+        return sorted(
+            items,
+            key=lambda item: (item.customer.status or "").lower(),
+            reverse=reverse,
+        )
+
+    if sort == "neighborhood":
+        return sorted(
+            items,
+            key=lambda item: (
+                (item.customer.neighborhood or item.customer.zip_code or "").lower(),
+                (item.customer.name or "").lower(),
+            ),
+            reverse=reverse,
+        )
+
+    if sort == "lead_source":
+        return sorted(
+            items,
+            key=lambda item: (
+                (item.customer.lead_source or "").lower(),
+                (item.customer.name or "").lower(),
+            ),
+            reverse=reverse,
+        )
+
+    if sort in {"last_service", "next_due"}:
+        dated: list[tuple[date, CustomerListItem]] = []
+        undated: list[CustomerListItem] = []
+        for item in items:
+            value = item.last_visit if sort == "last_service" else item.customer.next_service_due
+            if value is None:
+                undated.append(item)
+            else:
+                dated.append((value, item))
+        dated.sort(key=lambda pair: pair[0], reverse=reverse)
+        return [item for _, item in dated] + undated
+
+    return sorted(
+        items,
+        key=lambda item: (item.customer.name or "").lower(),
+        reverse=reverse,
     )
 
 
@@ -369,7 +535,11 @@ def list_customers(
                 filtered.append(item)
         items = filtered
 
-    return items
+    return _sort_customers(
+        items,
+        sort=filters.normalized_sort(),
+        sort_dir=filters.normalized_sort_dir(),
+    )
 
 
 def get_customer(db: Session, user_id: int, customer_id: int) -> Customer | None:

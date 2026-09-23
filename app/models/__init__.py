@@ -1,4 +1,5 @@
 from app.models.accounting import AccountingRecord
+from app.models.business_goals import BusinessGoals
 from app.models.calendar import CalendarConnection
 from app.models.customer import Customer
 from app.models.job import Job, JobWorkerAssignment
@@ -19,4 +20,5 @@ __all__ = [
     "CalendarConnection",
     "AccountingRecord",
     "PayrollConfig",
+    "BusinessGoals",
 ]

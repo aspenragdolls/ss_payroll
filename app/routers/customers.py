@@ -16,6 +16,8 @@ from app.services.customer_service import (
     NEXT_DUE_OPTIONS,
     REVENUE_METRIC_OPTIONS,
     SERVICE_TYPES,
+    SORT_DIRS,
+    SORT_OPTIONS,
     CustomerListFilters,
     create_customer,
     customer_status_label,
@@ -47,6 +49,8 @@ def _filters_from_query(
     never_service: str = "",
     lead_source: str = "",
     next_due: str = "",
+    sort: str = "name",
+    sort_dir: str = "asc",
 ) -> CustomerListFilters:
     return CustomerListFilters(
         q=q,
@@ -64,6 +68,8 @@ def _filters_from_query(
         never_service=never_service,
         lead_source=lead_source,
         next_due=next_due,
+        sort=sort,
+        sort_dir=sort_dir,
     )
 
 
@@ -77,6 +83,10 @@ def _filter_context(filters: CustomerListFilters) -> dict:
         "last_service_options": LAST_SERVICE_OPTIONS,
         "revenue_metric_options": REVENUE_METRIC_OPTIONS,
         "next_due_options": NEXT_DUE_OPTIONS,
+        "sort_options": SORT_OPTIONS,
+        "sort_dirs": SORT_DIRS,
+        "current_sort": filters.normalized_sort(),
+        "current_sort_dir": filters.normalized_sort_dir(),
     }
 
 
@@ -122,6 +132,8 @@ async def customers_list(
     never_service: str = "",
     lead_source: str = "",
     next_due: str = "",
+    sort: str = "name",
+    sort_dir: str = "asc",
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -141,6 +153,8 @@ async def customers_list(
         never_service=never_service,
         lead_source=lead_source,
         next_due=next_due,
+        sort=sort,
+        sort_dir=sort_dir,
     )
     items = list_customers(db, user.id, filters=filters)
     return request.app.state.templates.TemplateResponse(
@@ -174,6 +188,8 @@ async def customers_export(
     never_service: str = "",
     lead_source: str = "",
     next_due: str = "",
+    sort: str = "name",
+    sort_dir: str = "asc",
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -193,6 +209,8 @@ async def customers_export(
         never_service=never_service,
         lead_source=lead_source,
         next_due=next_due,
+        sort=sort,
+        sort_dir=sort_dir,
     )
     items = list_customers(db, user.id, filters=filters)
     csv_body = export_customers_csv(items, respect_marketing_prefs=True)

@@ -31,3 +31,6 @@ class User(Base):
     payroll_config = relationship(
         "PayrollConfig", back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    business_goals = relationship(
+        "BusinessGoals", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )

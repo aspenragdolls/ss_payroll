@@ -3,42 +3,345 @@
 {% block content %}
 <h1>Dashboard</h1>
 
-{% if event_deleted %}
-<div class="card">
-  <p>Event deleted from Apple Calendar.</p>
-</div>
-{% endif %}
+<nav class="steps dashboard-tabs" aria-label="Dashboard sections">
+  <a href="/?tab=stats" class="{% if tab == 'stats' %}active{% endif %}">Statistics</a>
+  <a href="/?tab=overview" class="{% if tab == 'overview' %}active{% endif %}">Overview</a>
+</nav>
 
-{% if draft_sessions %}
-<div class="card">
-  <h2>In-Progress Payroll</h2>
-  <ul class="draft-list">
-    {% for session in draft_sessions %}
-    <li>
-      <span>
-        <strong>{{ session.batch.pay_date or 'No date' }}</strong>
-        — {{ session.stage_label }}
-      </span>
-      <span class="draft-actions">
-        <a class="btn" href="{{ session.resume_url }}">Resume</a>
-        <form method="post" action="/payroll/{{ session.batch.id }}/delete" class="inline-form"
-          onsubmit="return confirm('Delete this in-progress payroll session? This cannot be undone.');">
-          <input type="hidden" name="return_to" value="dashboard">
-          <button type="submit" class="btn btn-danger">Delete</button>
-        </form>
-      </span>
-    </li>
-    {% endfor %}
-  </ul>
-  <p><a href="/payroll/begin">View all in-progress sessions</a></p>
-</div>
-{% endif %}
+{% if tab == 'overview' %}
+  {% if event_deleted %}
+  <div class="card">
+    <p>Event deleted from Apple Calendar.</p>
+  </div>
+  {% endif %}
 
-<div class="card">
-  <p>Welcome, {{ user.business_name }}.</p>
-  <p>
-    <a class="btn" href="/payroll/begin">Begin Payroll</a>
-    <a class="btn btn-secondary" href="/workers">Manage Workers</a>
+  {% if draft_sessions %}
+  <div class="card">
+    <h2>In-Progress Payroll</h2>
+    <ul class="draft-list">
+      {% for session in draft_sessions %}
+      <li>
+        <span>
+          <strong>{{ session.batch.pay_date or 'No date' }}</strong>
+          — {{ session.stage_label }}
+        </span>
+        <span class="draft-actions">
+          <a class="btn" href="{{ session.resume_url }}">Resume</a>
+          <form method="post" action="/payroll/{{ session.batch.id }}/delete" class="inline-form"
+            onsubmit="return confirm('Delete this in-progress payroll session? This cannot be undone.');">
+            <input type="hidden" name="return_to" value="dashboard">
+            <button type="submit" class="btn btn-danger">Delete</button>
+          </form>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p><a href="/payroll/begin">View all in-progress sessions</a></p>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <p>Welcome, {{ user.business_name }}.</p>
+    <p>
+      <a class="btn" href="/payroll/begin">Begin Payroll</a>
+      <a class="btn btn-secondary" href="/workers">Manage Workers</a>
+      <a class="btn btn-secondary" href="/?tab=stats">View Statistics</a>
+    </p>
+  </div>
+{% else %}
+  {% if goals_saved %}
+  <div class="card success-banner">Goals saved.</div>
+  {% endif %}
+  {% if goal_errors %}
+  <div class="card error-banner">
+    <ul class="error-list">
+      {% for err in goal_errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if stats %}
+  <div class="card stats-goals-card">
+    <h2>Revenue goals</h2>
+    <p class="field-hint">Track pace against monthly and yearly targets. Leave blank to clear a goal.</p>
+    <form method="post" action="/stats/goals" class="goals-form">
+      <div class="config-grid">
+        <label>
+          Monthly goal ($)
+          <input type="text" name="monthly_revenue_goal" inputmode="decimal"
+            value="{% if stats.monthly_revenue_goal is not none %}{{ '%.2f'|format(stats.monthly_revenue_goal) }}{% endif %}"
+            placeholder="e.g. 12000">
+        </label>
+        <label>
+          Yearly goal ($)
+          <input type="text" name="yearly_revenue_goal" inputmode="decimal"
+            value="{% if stats.yearly_revenue_goal is not none %}{{ '%.2f'|format(stats.yearly_revenue_goal) }}{% endif %}"
+            placeholder="e.g. 140000">
+        </label>
+      </div>
+      <p class="goals-form-actions">
+        <button type="submit" class="btn">Save goals</button>
+      </p>
+    </form>
+    {% if stats.mtd_goal_pct is not none %}
+    {% set bar_pct = 100 if stats.mtd_goal_pct > 100 else stats.mtd_goal_pct %}
+    <div class="goal-progress" aria-label="Month progress">
+      <div class="goal-progress-meta">
+        <span>This month</span>
+        <strong>{{ '%.0f'|format(stats.mtd_goal_pct) }}%</strong>
+      </div>
+      <div class="goal-progress-bar" role="progressbar"
+        aria-valuemin="0" aria-valuemax="100"
+        aria-valuenow="{{ bar_pct|int }}">
+        <span style="width: {{ bar_pct }}%;"></span>
+      </div>
+    </div>
+    {% elif not stats.monthly_revenue_goal %}
+    <p class="field-hint">Set a monthly goal to see progress here.</p>
+    {% endif %}
+  </div>
+
+  <div class="kpi-strip" aria-label="Key metrics">
+    <div class="kpi-card">
+      <span class="kpi-label">MTD revenue</span>
+      <strong class="kpi-value">${{ '%.2f'|format(stats.mtd_revenue) }}</strong>
+      <span class="kpi-sub">{{ stats.mtd_job_count }} job{{ 's' if stats.mtd_job_count != 1 else '' }}</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">YTD revenue</span>
+      <strong class="kpi-value">${{ '%.2f'|format(stats.ytd_revenue) }}</strong>
+      <span class="kpi-sub">
+        {% if stats.ytd_goal_pct is not none %}
+          {{ '%.0f'|format(stats.ytd_goal_pct) }}% of yearly goal
+        {% else %}
+          {{ stats.ytd_job_count }} job{{ 's' if stats.ytd_job_count != 1 else '' }}
+        {% endif %}
+      </span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Avg ticket (MTD)</span>
+      <strong class="kpi-value">
+        {% if stats.mtd_avg_ticket is not none %}${{ '%.2f'|format(stats.mtd_avg_ticket) }}{% else %}—{% endif %}
+      </strong>
+      <span class="kpi-sub">
+        YTD {% if stats.ytd_avg_ticket is not none %}${{ '%.2f'|format(stats.ytd_avg_ticket) }}{% else %}—{% endif %}
+      </span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Labor % (MTD)</span>
+      <strong class="kpi-value">
+        {% if stats.mtd_labor_pct is not none %}{{ '%.1f'|format(stats.mtd_labor_pct) }}%{% else %}—{% endif %}
+      </strong>
+      <span class="kpi-sub">
+        {% if stats.mtd_labor_pay is not none %}${{ '%.2f'|format(stats.mtd_labor_pay) }} paid{% else %}No finalized payroll yet{% endif %}
+      </span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Rebook opportunity</span>
+      <strong class="kpi-value">${{ '%.2f'|format(stats.rebook_opportunity) }}</strong>
+      <span class="kpi-sub">
+        {{ stats.rebook_overdue_count }} overdue · {{ stats.rebook_soon_count }} due in 30d
+      </span>
+    </div>
+  </div>
+
+  {% if stats.show_unlinked_warning %}
+  <p class="stats-note">
+    {{ '%.0f'|format(stats.unlinked_job_ratio * 100) }}% of finalized jobs in the last 12 months
+    are not linked to customers. Link jobs to customers for fuller lead-source and neighborhood revenue.
   </p>
-</div>
+  {% endif %}
+
+  <div class="card stats-chart-card">
+    <h2>Revenue pace</h2>
+    <p class="field-hint">Finalized ticket revenue by month (trailing 12 months). Goal line uses your monthly target.</p>
+    <div class="chart-wrap chart-wrap-tall">
+      <canvas id="chart-revenue" aria-label="Monthly revenue chart"></canvas>
+    </div>
+  </div>
+
+  <div class="stats-chart-grid">
+    <div class="card stats-chart-card">
+      <h2>Lead sources</h2>
+      <p class="field-hint">Where your book comes from — customers and linked job revenue.</p>
+      <div class="chart-wrap">
+        <canvas id="chart-lead-source" aria-label="Lead source chart"></canvas>
+      </div>
+    </div>
+    <div class="card stats-chart-card">
+      <h2>Top neighborhoods</h2>
+      <p class="field-hint">Density for door-knock and yard-sign planning.</p>
+      <div class="chart-wrap">
+        <canvas id="chart-neighborhood" aria-label="Neighborhood chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card stats-chart-card">
+    <h2>Customer pipeline</h2>
+    <p class="field-hint">Sales follow-up: how the book sits by status.</p>
+    <div class="chart-wrap">
+      <canvas id="chart-pipeline" aria-label="Pipeline chart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Rebook opportunities</h2>
+    <p class="field-hint">
+      Overdue and due within 30 days. Opportunity uses each customer’s usual price.
+      Total potential: <strong>${{ '%.2f'|format(stats.rebook_opportunity) }}</strong>.
+    </p>
+    {% if stats.rebook_items %}
+    <div class="table-wrap">
+      <table class="stats-rebook-table">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Due</th>
+            <th>Status</th>
+            <th class="num">Usual price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in stats.rebook_items %}
+          <tr class="{% if item.overdue %}rebook-overdue{% endif %}">
+            <td><a href="/customers/{{ item.customer_id }}">{{ item.name }}</a></td>
+            <td>{{ item.next_service_due.isoformat() }}</td>
+            <td>{% if item.overdue %}Overdue{% else %}Due soon{% endif %}</td>
+            <td class="num">
+              {% if item.usual_price is not none %}${{ '%.2f'|format(item.usual_price) }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p>No overdue or upcoming rebooks in the next 30 days.</p>
+    {% endif %}
+  </div>
+
+  <script id="stats-chart-data" type="application/json">{{ stats.to_template_dict().charts | tojson }}</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+  (function () {
+    var el = document.getElementById("stats-chart-data");
+    if (!el || typeof Chart === "undefined") return;
+    var data = JSON.parse(el.textContent);
+    var styles = getComputedStyle(document.documentElement);
+    var fg = styles.getPropertyValue("--fg").trim() || "#1a1a1a";
+    var muted = styles.getPropertyValue("--muted").trim() || "#64748b";
+    var border = styles.getPropertyValue("--border").trim() || "#e5e7eb";
+    var btn = styles.getPropertyValue("--btn").trim() || "#2563eb";
+
+    function moneyTicks(value) {
+      if (value >= 1000) return "$" + (value / 1000).toFixed(value % 1000 === 0 ? 0 : 1) + "k";
+      return "$" + value;
+    }
+
+    function tooltipLabel(ctx) {
+      var v = ctx.parsed.y != null ? ctx.parsed.y : ctx.parsed.x;
+      if (ctx.dataset.unit === "count") {
+        return (ctx.dataset.label || "Count") + ": " + v;
+      }
+      return (ctx.dataset.label || "Revenue") + ": $" + Number(v).toLocaleString(undefined, {
+        maximumFractionDigits: 0
+      });
+    }
+
+    var revenueDatasets = [{
+      label: "Revenue",
+      data: data.month_revenues || [],
+      backgroundColor: btn,
+      borderRadius: 4,
+      maxBarThickness: 36
+    }];
+    if (data.month_goal != null) {
+      revenueDatasets.push({
+        type: "line",
+        label: "Monthly goal",
+        data: (data.month_labels || []).map(function () { return data.month_goal; }),
+        borderColor: muted,
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0
+      });
+    }
+    new Chart(document.getElementById("chart-revenue"), {
+      type: "bar",
+      data: { labels: data.month_labels || [], datasets: revenueDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: data.month_goal != null, labels: { color: fg } },
+          tooltip: { callbacks: { label: tooltipLabel } }
+        },
+        scales: {
+          x: {
+            ticks: { color: muted, maxRotation: 45, minRotation: 0 },
+            grid: { color: border }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: muted, callback: moneyTicks },
+            grid: { color: border }
+          }
+        }
+      }
+    });
+
+    function horizontalBar(canvasId, labels, values, unit) {
+      var canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: labels || [],
+          datasets: [{
+            label: unit === "count" ? "Customers" : "Revenue",
+            data: values || [],
+            backgroundColor: btn,
+            borderRadius: 4,
+            maxBarThickness: 28,
+            unit: unit
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: tooltipLabel } }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                color: muted,
+                callback: unit === "count" ? function (v) { return v; } : moneyTicks
+              },
+              grid: { color: border }
+            },
+            y: {
+              ticks: { color: muted },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    horizontalBar("chart-lead-source", data.lead_source_labels, data.lead_source_revenues, "money");
+    horizontalBar("chart-neighborhood", data.neighborhood_labels, data.neighborhood_revenues, "money");
+    horizontalBar("chart-pipeline", data.pipeline_labels, data.pipeline_counts, "count");
+  })();
+  </script>
+  {% endif %}
+{% endif %}
 {% endblock %}
