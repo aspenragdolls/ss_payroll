@@ -6,15 +6,37 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="SS Payroll">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#f2f2f7" id="meta-theme-color">
   <title>Apple Calendar — ss_payroll</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/static/icons/app-icon-180.png?v={{ static_version }}">
   <link rel="manifest" href="/static/manifest.json?v={{ static_version }}">
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <script>
+  (function () {
+    try {
+      var theme = localStorage.getItem("ss-payroll-theme");
+      if (theme !== "light" && theme !== "dark") {
+        theme = localStorage.getItem("ss-payroll-ios-theme");
+      }
+      if (theme !== "light" && theme !== "dark") theme = "light";
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  })();
+  </script>
   <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
 </head>
-<body class="ios-cal-page" data-connected="{{ '1' if connected else '0' }}" data-calendar-name="{{ calendar_name }}">
+<body class="ios-cal-page" data-theme="light" data-connected="{{ '1' if connected else '0' }}" data-calendar-name="{{ calendar_name }}">
+  <script>
+  (function () {
+    var theme = document.documentElement.getAttribute("data-theme") || "light";
+    document.body.setAttribute("data-theme", theme);
+    var meta = document.getElementById("meta-theme-color");
+    if (meta) meta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
+  })();
+  </script>
   <div class="ios-cal" id="ios-cal">
     <header class="ios-cal-top" id="cal-top">
       <button type="button" class="ios-cal-back" id="nav-back" aria-label="Month">
@@ -22,6 +44,21 @@
         <span id="nav-back-label">September</span>
       </button>
       <div class="ios-cal-top-actions">
+        <button
+          type="button"
+          class="ios-cal-icon-btn ios-cal-theme-toggle"
+          id="theme-toggle"
+          aria-label="Switch to dark mode"
+          title="Toggle light / dark mode"
+        >
+          <svg class="ios-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="ios-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"></path>
+          </svg>
+        </button>
         <button type="button" class="ios-cal-icon-btn is-active" id="btn-list" aria-label="List view" title="List">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
         </button>
@@ -86,6 +123,33 @@
     const searchCancel = document.getElementById("search-cancel");
     const errorEl = document.getElementById("cal-error");
     const connected = document.body.dataset.connected === "1";
+    const themeToggle = document.getElementById("theme-toggle");
+    const themeMeta = document.getElementById("meta-theme-color");
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.body.setAttribute("data-theme", theme);
+      if (themeMeta) {
+        themeMeta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
+      }
+      if (themeToggle) {
+        themeToggle.setAttribute(
+          "aria-label",
+          theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+        );
+      }
+      try {
+        localStorage.setItem("ss-payroll-theme", theme);
+      } catch (e) {}
+    }
+
+    applyTheme(document.body.getAttribute("data-theme") || "light");
+    if (themeToggle) {
+      themeToggle.addEventListener("click", function () {
+        const next = document.body.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        applyTheme(next);
+      });
+    }
 
     const state = {
       view: "list", // list | month | year

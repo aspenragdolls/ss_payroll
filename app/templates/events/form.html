@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="SS Payroll">
-  <meta name="theme-color" content="#000000" id="meta-theme-color">
+  <meta name="theme-color" content="#f2f2f7" id="meta-theme-color">
   <title>{% if uid %}Edit Event{% else %}New Event{% endif %} — ss_payroll</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/static/icons/app-icon-180.png?v={{ static_version }}">
@@ -15,18 +15,23 @@
   <script>
   (function () {
     try {
-      var theme = localStorage.getItem("ss-payroll-ios-theme");
-      if (theme !== "light" && theme !== "dark") theme = "dark";
-      document.documentElement.setAttribute("data-ios-theme-boot", theme);
-    } catch (e) {}
+      var theme = localStorage.getItem("ss-payroll-theme");
+      if (theme !== "light" && theme !== "dark") {
+        theme = localStorage.getItem("ss-payroll-ios-theme");
+      }
+      if (theme !== "light" && theme !== "dark") theme = "light";
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
   })();
   </script>
   <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
 </head>
-<body class="ios-event-page">
+<body class="ios-event-page" data-theme="light">
   <script>
   (function () {
-    var theme = document.documentElement.getAttribute("data-ios-theme-boot") || "dark";
+    var theme = document.documentElement.getAttribute("data-theme") || "light";
     document.body.setAttribute("data-theme", theme);
     var meta = document.getElementById("meta-theme-color");
     if (meta) meta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
@@ -44,7 +49,7 @@
         type="button"
         class="ios-pill ios-theme-toggle"
         id="theme-toggle"
-        aria-label="Switch to light mode"
+        aria-label="Switch to dark mode"
         title="Toggle light / dark mode"
       >
         <svg class="ios-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
@@ -203,6 +208,7 @@
     const themeMeta = document.getElementById("meta-theme-color");
 
     function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
       document.body.setAttribute("data-theme", theme);
       if (themeMeta) {
         themeMeta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
@@ -214,14 +220,14 @@
         );
       }
       try {
-        localStorage.setItem("ss-payroll-ios-theme", theme);
+        localStorage.setItem("ss-payroll-theme", theme);
       } catch (e) {}
     }
 
     if (themeToggle) {
-      applyTheme(document.body.getAttribute("data-theme") || "dark");
+      applyTheme(document.body.getAttribute("data-theme") || "light");
       themeToggle.addEventListener("click", function () {
-        const next = document.body.getAttribute("data-theme") === "light" ? "dark" : "light";
+        const next = document.body.getAttribute("data-theme") === "dark" ? "light" : "dark";
         applyTheme(next);
       });
     }

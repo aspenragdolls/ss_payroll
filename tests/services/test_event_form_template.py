@@ -46,7 +46,8 @@ def test_event_form_template_is_iphone_oriented():
     assert "ios-when-date" in html
     assert "ios-when-time" in html
     assert 'id="theme-toggle"' in html
-    assert "ss-payroll-ios-theme" in html
+    assert "ss-payroll-theme" in html
+    assert 'data-theme="light"' in html
     assert 'name="starts_at"' in html
     assert 'name="ends_at"' in html
     assert "Parks Mangelson ($322)" in html

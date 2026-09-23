@@ -38,3 +38,23 @@ def test_base_nav_links_to_apple_calendar():
     )
     assert 'href="/events">Apple Calendar</a>' in html
     assert "New Event" not in html
+    assert 'id="theme-toggle"' in html
+    assert "ss-payroll-theme" in html
+    assert 'data-theme="light"' in html
+
+
+def test_calendar_viewer_has_theme_toggle():
+    templates_dir = Path(__file__).resolve().parents[2] / "app" / "templates"
+    env = Environment(
+        loader=FileSystemLoader(str(templates_dir)),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    html = env.get_template("events/calendar.html").render(
+        static_version="test",
+        connected=True,
+        calendar_name="Work",
+        user={"business_name": "Test Co", "id": 1},
+    )
+    assert 'id="theme-toggle"' in html
+    assert "ss-payroll-theme" in html
+    assert 'data-theme="light"' in html

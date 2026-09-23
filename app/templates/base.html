@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SS Payroll">
   <meta name="application-name" content="SS Payroll">
-  <meta name="theme-color" content="#0B5C3B">
+  <meta name="theme-color" content="#f4f6f8" id="meta-theme-color">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/static/icons/app-icon-180.png?v={{ static_version }}">
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/app-icon-192.png?v={{ static_version }}">
@@ -19,19 +19,58 @@
   <link rel="manifest" href="/static/manifest.json?v={{ static_version }}">
 
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <script>
+  (function () {
+    try {
+      var theme = localStorage.getItem("ss-payroll-theme");
+      if (theme !== "light" && theme !== "dark") {
+        theme = localStorage.getItem("ss-payroll-ios-theme");
+      }
+      if (theme !== "light" && theme !== "dark") theme = "light";
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  })();
+  </script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
 </head>
-<body>
+<body data-theme="light">
+  <script>
+  (function () {
+    var theme = document.documentElement.getAttribute("data-theme") || "light";
+    document.body.setAttribute("data-theme", theme);
+    var meta = document.getElementById("meta-theme-color");
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#0f1419" : "#f4f6f8");
+  })();
+  </script>
+  {% macro theme_toggle_button() -%}
+  <button
+    type="button"
+    class="theme-toggle"
+    id="theme-toggle"
+    aria-label="Switch to dark mode"
+    title="Toggle light / dark mode"
+  >
+    <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+    </svg>
+    <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"></path>
+    </svg>
+  </button>
+  {%- endmacro %}
   {% if user %}
   <header>
     <div><strong>{{ user.business_name }}</strong> — ss_payroll</div>
     <nav>
       <a href="/">Dashboard</a>
-      <a href="/events">Apple Calendar</a>
+      <a class="btn" href="/events">Apple Calendar</a>
       <a href="/workers">Workers</a>
-      <a href="/customers">Customers</a>
-      <a href="/payroll/begin">Payroll</a>
+      <a class="btn" href="/customers">Customers</a>
+      <a class="btn" href="/payroll/begin">Payroll</a>
       <a href="/payroll/history">History</a>
       <a href="/settings/payroll">Pay Setup</a>
       <a href="/settings/calendar">Calendar</a>
@@ -39,11 +78,45 @@
       <form action="/auth/logout" method="post" style="display:inline">
         <button type="submit" class="btn btn-secondary" style="margin-left:1rem">Logout</button>
       </form>
+      {{ theme_toggle_button() }}
     </nav>
   </header>
+  {% else %}
+  <div class="theme-bar">
+    {{ theme_toggle_button() }}
+  </div>
   {% endif %}
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script>
+  (function () {
+    var toggle = document.getElementById("theme-toggle");
+    var meta = document.getElementById("meta-theme-color");
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.body.setAttribute("data-theme", theme);
+      if (meta) meta.setAttribute("content", theme === "dark" ? "#0f1419" : "#f4f6f8");
+      if (toggle) {
+        toggle.setAttribute(
+          "aria-label",
+          theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+        );
+      }
+      try {
+        localStorage.setItem("ss-payroll-theme", theme);
+      } catch (e) {}
+    }
+
+    applyTheme(document.body.getAttribute("data-theme") || "light");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        var next = document.body.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        applyTheme(next);
+      });
+    }
+  })();
+  </script>
 </body>
 </html>
