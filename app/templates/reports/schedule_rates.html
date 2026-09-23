@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Schedule Rate Feedback — ss_payroll{% endblock %}
+{% block content %}
+<h1>Schedule rate feedback</h1>
+<p>Compare booked durations to actual job timers and payroll hours. Rates are never auto-changed.</p>
+
+<div class="card">
+  <h2>Bookings vs job timer</h2>
+  <table>
+    <thead>
+      <tr><th>Job</th><th>Booked</th><th>Actual</th><th>Price</th><th>Est $/hr</th><th>Actual $/hr</th><th>Crew schedule</th><th>Note</th></tr>
+    </thead>
+    <tbody>
+      {% for r in booking_rows %}
+      <tr>
+        <td>{{ r.label }}</td>
+        <td>{% if r.booked_minutes %}{{ r.booked_minutes }}m{% else %}—{% endif %}</td>
+        <td>{% if r.actual_minutes %}{{ r.actual_minutes }}m{% else %}—{% endif %}</td>
+        <td>{% if r.price %}${{ '%.2f'|format(r.price) }}{% else %}—{% endif %}</td>
+        <td>{% if r.estimated_dph %}${{ '%.2f'|format(r.estimated_dph) }}{% else %}—{% endif %}</td>
+        <td>{% if r.actual_dph %}${{ '%.2f'|format(r.actual_dph) }}{% else %}—{% endif %}</td>
+        <td>{% if r.schedule_rate %}${{ '%.2f'|format(r.schedule_rate) }}{% else %}—{% endif %}</td>
+        <td>{{ r.note }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">No bookings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Worker schedule rate suggestions</h2>
+  <table>
+    <thead>
+      <tr><th>Worker</th><th>Current schedule $/hr</th><th>Implied avg $/hr</th><th>Note</th></tr>
+    </thead>
+    <tbody>
+      {% for r in worker_rows %}
+      <tr>
+        <td>{{ r.label }}</td>
+        <td>{% if r.schedule_rate %}${{ '%.2f'|format(r.schedule_rate) }}{% else %}—{% endif %}</td>
+        <td>{% if r.actual_dph %}${{ '%.2f'|format(r.actual_dph) }}{% else %}—{% endif %}</td>
+        <td>{{ r.note }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">No workers.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Payroll hours vs bookings</h2>
+  <table>
+    <thead>
+      <tr><th>Job</th><th>Booked</th><th>Payroll hours</th><th>Price</th><th>Est $/hr</th><th>Actual $/hr</th></tr>
+    </thead>
+    <tbody>
+      {% for r in payroll_rows %}
+      <tr>
+        <td>{{ r.label }}</td>
+        <td>{% if r.booked_minutes %}{{ r.booked_minutes }}m{% else %}—{% endif %}</td>
+        <td>{% if r.actual_minutes %}{{ r.actual_minutes }}m{% else %}—{% endif %}</td>
+        <td>{% if r.price %}${{ '%.2f'|format(r.price) }}{% else %}—{% endif %}</td>
+        <td>{% if r.estimated_dph %}${{ '%.2f'|format(r.estimated_dph) }}{% else %}—{% endif %}</td>
+        <td>{% if r.actual_dph %}${{ '%.2f'|format(r.actual_dph) }}{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No payroll jobs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

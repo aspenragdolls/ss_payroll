@@ -58,6 +58,7 @@ async def workers_create(
     labor_pay_type: str = Form(""),
     labor_percentage_tier: str = Form(""),
     hourly_rate: str = Form(""),
+    schedule_dollars_per_hour: str = Form(""),
     notes: str = Form(""),
     is_active: str = Form("on"),
 ):
@@ -76,6 +77,7 @@ async def workers_create(
         labor_pay_type=labor_pay_type or None,
         labor_percentage_tier=labor_percentage_tier or None,
         hourly_rate=rate,
+        schedule_dollars_per_hour=_parse_decimal(schedule_dollars_per_hour),
         notes=notes or None,
     )
     return RedirectResponse("/workers", status_code=status.HTTP_303_SEE_OTHER)
@@ -111,6 +113,7 @@ async def workers_update(
     labor_pay_type: str = Form(""),
     labor_percentage_tier: str = Form(""),
     hourly_rate: str = Form(""),
+    schedule_dollars_per_hour: str = Form(""),
     notes: str = Form(""),
     is_active: str = Form("on"),
 ):
@@ -131,6 +134,7 @@ async def workers_update(
         labor_pay_type=labor_pay_type or None,
         labor_percentage_tier=labor_percentage_tier or None,
         hourly_rate=_parse_decimal(hourly_rate),
+        schedule_dollars_per_hour=_parse_decimal(schedule_dollars_per_hour),
         notes=notes or None,
     )
     return RedirectResponse(

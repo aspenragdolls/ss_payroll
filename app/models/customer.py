@@ -36,6 +36,7 @@ class Customer(Base):
     job_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     job_finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     job_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_override_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     allow_email: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_sms: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_mail: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -48,3 +49,6 @@ class Customer(Base):
 
     user = relationship("User", back_populates="customers")
     jobs = relationship("Job", back_populates="customer")
+    quotes = relationship("Quote", back_populates="customer")
+    bookings = relationship("Booking", back_populates="customer")
+    account = relationship("CustomerAccount", back_populates="customer", uselist=False)

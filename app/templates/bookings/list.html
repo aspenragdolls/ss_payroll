@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Bookings — ss_payroll{% endblock %}
+{% block content %}
+<h1>Bookings</h1>
+<p><a class="btn" href="/bookings/new">New booking</a></p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>When</th><th>Customer</th><th>Crew</th><th>Price</th><th>Duration</th><th>Source</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for b in bookings %}
+      <tr>
+        <td>{{ b.starts_at.strftime('%Y-%m-%d %H:%M') if b.starts_at else '—' }}</td>
+        <td>{{ b.customer.name if b.customer else '—' }}</td>
+        <td>{{ b.crew.name if b.crew else '—' }}</td>
+        <td>${{ '%.2f'|format(b.price) }}</td>
+        <td>{{ b.duration_minutes }}m</td>
+        <td>{{ b.duration_source }}</td>
+        <td>{{ b.status }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No bookings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

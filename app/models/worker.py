@@ -19,6 +19,9 @@ class Worker(Base):
     labor_pay_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     labor_percentage_tier: Mapped[str | None] = mapped_column(String(32), nullable=True)
     hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    schedule_dollars_per_hour: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -27,3 +30,4 @@ class Worker(Base):
 
     user = relationship("User", back_populates="workers")
     assignments = relationship("JobWorkerAssignment", back_populates="worker")
+    crew_memberships = relationship("CrewMember", back_populates="worker")

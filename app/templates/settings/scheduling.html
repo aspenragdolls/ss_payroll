@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Scheduling Settings — ss_payroll{% endblock %}
+{% block content %}
+<h1>Scheduling Settings</h1>
+{% if saved %}<div class="success">Saved.</div>{% endif %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<div class="card">
+  <form method="post">
+    <label>Business hours start (HH:MM)</label>
+    <input type="text" name="business_hours_start" value="{{ settings.business_hours_start.strftime('%H:%M') if settings.business_hours_start else '08:00' }}">
+
+    <label>Business hours end (HH:MM)</label>
+    <input type="text" name="business_hours_end" value="{{ settings.business_hours_end.strftime('%H:%M') if settings.business_hours_end else '17:00' }}">
+
+    <label>Slot grain (minutes)</label>
+    <input type="number" name="slot_grain_minutes" value="{{ settings.slot_grain_minutes or 30 }}" min="5">
+
+    <label>Buffer between jobs (minutes)</label>
+    <input type="number" name="buffer_minutes" value="{{ settings.buffer_minutes or 15 }}" min="0">
+
+    <label>Timezone</label>
+    <input type="text" name="timezone" value="{{ settings.timezone or 'America/Denver' }}">
+
+    <p style="margin-top:1rem"><button class="btn" type="submit">Save</button></p>
+  </form>
+</div>
+{% endblock %}

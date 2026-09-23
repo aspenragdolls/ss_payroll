@@ -1,0 +1,29 @@
+{# Partial HTML loaded into schedule page #}
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+<p>
+  {{ crew_name }} on {{ day }} —
+  {{ duration_minutes }} min block
+  {% if price %} @ ${{ '%.2f'|format(price) }}{% endif %}
+  ·
+  <a href="/portal/slots?crew_id={{ crew_id }}&day={{ prev_day }}">Prev</a>
+  ·
+  <a href="/portal/slots?crew_id={{ crew_id }}&day={{ next_day }}">Next</a>
+</p>
+{% if slots %}
+<ul style="list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:0.5rem">
+  {% for slot in slots %}
+  <li>
+    <form method="post" action="/portal/book" style="display:inline">
+      <input type="hidden" name="crew_id" value="{{ crew_id }}">
+      <input type="hidden" name="starts_at" value="{{ slot.starts_at.isoformat() }}">
+      <button class="btn" type="submit">{{ slot.starts_at.strftime('%I:%M %p') }}</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No open slots this day.</p>
+{% endif %}
+{% endif %}

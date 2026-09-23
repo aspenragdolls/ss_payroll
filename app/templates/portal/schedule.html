@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Schedule — {{ business.business_name }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+  <h1>Schedule with {{ business.business_name }}</h1>
+  <form action="/portal/logout" method="post"><button class="btn btn-secondary" type="submit">Log out</button></form>
+</div>
+<p>Signed in as {{ account.email }} — {{ customer.name }}</p>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if message %}<div class="success">{{ message }}</div>{% endif %}
+
+{% if eligibility.can_schedule %}
+<div class="card">
+  <h2>Book a time</h2>
+  <p>Bookable price: <strong>${{ '%.2f'|format(eligibility.price) }}</strong> — {{ eligibility.reason }}</p>
+  {% if crews %}
+  <label>Crew</label>
+  <select id="crew-select">
+    {% for c in crews %}
+    <option value="{{ c.id }}">{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <label>Date</label>
+  <input type="date" id="slot-day" value="">
+  <p><a class="btn" id="load-slots" href="#">Show available times</a></p>
+  <div id="slots-panel"></div>
+  <script>
+  (function () {
+    var day = document.getElementById('slot-day');
+    var today = new Date();
+    day.value = today.toISOString().slice(0, 10);
+    document.getElementById('load-slots').addEventListener('click', function (e) {
+      e.preventDefault();
+      var crew = document.getElementById('crew-select').value;
+      var url = '/portal/slots?crew_id=' + encodeURIComponent(crew) + '&day=' + encodeURIComponent(day.value);
+      fetch(url).then(function (r) { return r.text(); }).then(function (html) {
+        document.getElementById('slots-panel').innerHTML = html;
+      });
+    });
+  })();
+  </script>
+  {% else %}
+  <p>No crews are available for online booking yet.</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="card">
+  <h2>Get an estimate</h2>
+  <p>{{ eligibility.reason }}</p>
+  {% if packages %}
+  <form method="post" action="/portal/estimate">
+    <label>Service package</label>
+    <select name="package_id" required>
+      {% for p in packages %}
+      <option value="{{ p.id }}">{{ p.name }} — from ${{ '%.2f'|format(p.base_price) }}</option>
+      {% endfor %}
+    </select>
+    <p style="margin-top:1rem"><button class="btn" type="submit">Get instant estimate</button></p>
+  </form>
+  {% else %}
+  <p>No packages are published yet. Contact the business for a quote.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if past_services %}
+<div class="card">
+  <h2>Past services</h2>
+  <ul>
+    {% for s in past_services %}
+    <li>
+      {% if s.date %}{{ s.date }} — {% endif %}
+      {{ s.description or 'Service' }}
+      {% if s.price %} (${{ '%.2f'|format(s.price) }}){% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if estimate %}
+<div class="card">
+  <h2>Estimate result</h2>
+  <p><strong>${{ '%.2f'|format(estimate.amount) }}</strong> for {{ estimate.package_name }}</p>
+  <p>{{ estimate.reason }}</p>
+</div>
+{% endif %}
+{% endblock %}

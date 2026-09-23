@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}New Quote — ss_payroll{% endblock %}
+{% block content %}
+<h1>New Quote</h1>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<div class="card">
+  <form method="post">
+    <label>Customer</label>
+    <select name="customer_id" required>
+      <option value="">—</option>
+      {% for c in customers %}
+      <option value="{{ c.id }}">{{ c.name }}{% if c.address %} — {{ c.address }}{% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label>Package (optional)</label>
+    <select name="package_id">
+      <option value="">—</option>
+      {% for p in packages %}
+      <option value="{{ p.id }}">{{ p.name }} (${{ '%.2f'|format(p.base_price) }})</option>
+      {% endfor %}
+    </select>
+
+    <label>Amount ($)</label>
+    <input type="text" name="amount" required>
+
+    <label>Status</label>
+    <select name="status_value">
+      {% for key, label in statuses %}
+      <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <label>Notes</label>
+    <textarea name="notes" rows="3"></textarea>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Save Quote</button>
+      <a class="btn btn-secondary" href="/quotes">Cancel</a>
+    </p>
+  </form>
+</div>
+{% endblock %}

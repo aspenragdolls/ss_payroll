@@ -83,6 +83,10 @@
     <label>Aliases</label>
     <input type="text" name="aliases" value="{{ customer.aliases if customer and customer.aliases else '' }}" placeholder="Other names, separated by semicolons">
 
+    <label>Duration override (minutes)</label>
+    <input type="number" name="duration_override_minutes" min="0" value="{{ customer.duration_override_minutes if customer and customer.duration_override_minutes else '' }}" placeholder="Leave blank to use formula or prior job timer">
+    <p class="muted">When set, scheduling uses this length instead of price ÷ crew $/hr.</p>
+
     <label>Notes</label>
     <textarea name="notes" rows="4">{{ customer.notes if customer and customer.notes else '' }}</textarea>
 

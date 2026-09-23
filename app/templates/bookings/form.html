@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}New Booking — ss_payroll{% endblock %}
+{% block content %}
+<h1>New Booking</h1>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if duration_preview %}<p>Estimated duration: {{ duration_preview }} minutes</p>{% endif %}
+<div class="card">
+  <form method="post">
+    <label>Crew</label>
+    <select name="crew_id" required>
+      {% for c in crews %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+
+    <label>Customer (optional)</label>
+    <select name="customer_id">
+      <option value="">—</option>
+      {% for c in customers %}
+      <option value="{{ c.id }}">{{ c.name }}{% if c.usual_price %} (${{ '%.2f'|format(c.usual_price) }}){% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label>Price ($)</label>
+    <input type="text" name="price" required>
+
+    <label>Starts at</label>
+    <input type="datetime-local" name="starts_at" required>
+
+    <label>Notes</label>
+    <textarea name="notes" rows="2"></textarea>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Book</button>
+      <a class="btn btn-secondary" href="/bookings">Cancel</a>
+    </p>
+  </form>
+</div>
+<p class="muted">End time is calculated as price ÷ sum of crew schedule $/hr (or customer duration override / prior job timer).</p>
+{% endblock %}

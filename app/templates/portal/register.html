@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Register — {{ business.business_name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <h1>Create account</h1>
+  <p>Scheduling with <strong>{{ business.business_name }}</strong></p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>Name</label>
+    <input type="text" name="name" required>
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Password</label>
+    <input type="password" name="password" required minlength="8">
+    <label>Phone</label>
+    <input type="text" name="phone">
+    <label>Service address</label>
+    <input type="text" name="address">
+    <label>Zip code</label>
+    <input type="text" name="zip_code">
+    <p style="margin-top:1rem"><button class="btn" type="submit">Create account</button></p>
+  </form>
+  <p><a href="/portal/{{ business.id }}/login">Already have an account?</a></p>
+</div>
+{% endblock %}

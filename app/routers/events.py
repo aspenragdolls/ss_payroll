@@ -33,6 +33,11 @@ from app.services.job_timer_service import (
     job_timer_view,
     start_job_for_event,
 )
+from app.services.crew_service import list_crews
+from app.services.booking_service import BookingError, create_booking
+from app.services.duration_service import DurationError
+from app.services.crew_service import get_crew
+from app.services.booking_service import resolve_duration
 from app.services.event_format import (
     CLASSIFICATIONS,
     SERVICE_SCOPES,
@@ -100,6 +105,7 @@ def _form_defaults() -> dict:
         "starts_at": _to_datetime_local(now),
         "ends_at": _to_datetime_local(end),
         "title_preview": "",
+        "crew_id": "",
     }
 
 
@@ -116,6 +122,7 @@ def _values_from_parsed(parsed: dict, customer_id: str = "") -> dict:
         "starts_at": _to_datetime_local(parsed["starts_at"]),
         "ends_at": _to_datetime_local(parsed["ends_at"]),
         "title_preview": build_event_title(parsed["customer_name"], safe_decimal(parsed["price"])),
+        "crew_id": "",
     }
 
 
@@ -162,6 +169,7 @@ def _template_context(
     deleted: bool = False,
     job_timer=None,
     job_message: str | None = None,
+    crews: list | None = None,
 ) -> dict:
     return {
         "request": request,
@@ -177,6 +185,7 @@ def _template_context(
         "deleted": deleted,
         "job_timer": job_timer if job_timer is not None else job_timer_view(None),
         "job_message": job_message,
+        "crews": crews or [],
     }
 
 
@@ -263,6 +272,7 @@ async def new_event_form(
             if conn
             else "Apple Calendar is not connected. Connect it under Settings → Calendar.",
             job_timer=job_timer_view(None),
+            crews=list_crews(db, user.id, active_only=True),
         ),
     )
 
@@ -282,8 +292,10 @@ async def create_event(
     free_note: str = Form(""),
     starts_at: str = Form(""),
     ends_at: str = Form(""),
+    crew_id: str = Form(""),
 ):
     conn = get_active_connection(db, user.id)
+    crews = list_crews(db, user.id, active_only=True)
     values = {
         "customer_id": customer_id,
         "customer_name": customer_name,
@@ -296,6 +308,7 @@ async def create_event(
         "starts_at": starts_at,
         "ends_at": ends_at,
         "title_preview": build_event_title(customer_name, safe_decimal(price)),
+        "crew_id": crew_id,
     }
 
     def fail(message: str):
@@ -310,6 +323,7 @@ async def create_event(
                 calendar_name=conn.calendar_id if conn else "Work",
                 connected=conn is not None,
                 error=message,
+                crews=crews,
             ),
         )
 
@@ -333,6 +347,39 @@ async def create_event(
         cid = int(customer_id.strip())
         if not get_customer(db, user.id, cid):
             cid = None
+
+    selected_crew_id = int(crew_id) if crew_id.strip().isdigit() else None
+    if selected_crew_id and ticket is not None and ticket > 0:
+        crew = get_crew(db, user.id, selected_crew_id)
+        if not crew:
+            return fail("Selected crew not found.")
+        try:
+            customer = get_customer(db, user.id, cid) if cid else None
+            estimate = resolve_duration(db, user.id, crew, ticket, customer)
+            end = start + timedelta(minutes=estimate.minutes)
+            booking = await create_booking(
+                db,
+                user.id,
+                crew_id=selected_crew_id,
+                customer_id=cid,
+                price=ticket,
+                starts_at=start,
+                notes=free_note or None,
+                customer_name=name,
+                address=address,
+                phone=phone,
+                classification=classification,
+                service_scope=service_scope or None,
+                write_apple=True,
+            )
+            return RedirectResponse(
+                f"/events/{booking.calendar_event_uid}/edit?saved=1",
+                status_code=303,
+            )
+        except (BookingError, DurationError, CalendarWriteError, CalendarFetchError) as exc:
+            return fail(str(exc))
+        except Exception as exc:  # noqa: BLE001
+            return fail(f"Could not save booking: {exc}")
 
     try:
         event = await create_event_for_user(
@@ -431,6 +478,7 @@ async def edit_event_form(
             saved=saved == "1",
             job_timer=job_timer_view(linked),
             job_message=job_message,
+            crews=list_crews(db, user.id, active_only=True),
         ),
     )
 

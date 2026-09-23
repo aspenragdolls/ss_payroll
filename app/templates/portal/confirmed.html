@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Booking confirmed{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <h1>You're booked</h1>
+  <p>{{ business.business_name }}</p>
+  <p>
+    <strong>{{ booking.starts_at.strftime('%A, %B %d') }}</strong><br>
+    {{ booking.starts_at.strftime('%I:%M %p') }} – {{ booking.ends_at.strftime('%I:%M %p') }}
+  </p>
+  <p>Price: ${{ '%.2f'|format(booking.price) }} · {{ booking.duration_minutes }} minutes</p>
+  <p><a class="btn" href="/portal/schedule">Back to schedule</a></p>
+</div>
+{% endblock %}

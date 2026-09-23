@@ -260,6 +260,7 @@ async def customers_create(
     lead_source: str = Form(""),
     next_service_due: str = Form(""),
     services: list[str] = Form(default=[]),
+    duration_override_minutes: str = Form(""),
     allow_email: str | None = Form(None),
     allow_sms: str | None = Form(None),
     allow_mail: str | None = Form(None),
@@ -279,6 +280,9 @@ async def customers_create(
             },
             status_code=400,
         )
+    override = None
+    if duration_override_minutes.strip().isdigit():
+        override = int(duration_override_minutes.strip())
     customer = create_customer(
         db,
         user.id,
@@ -296,6 +300,7 @@ async def customers_create(
         lead_source=lead_source or None,
         services=services,
         next_service_due=_parse_optional_date(next_service_due),
+        duration_override_minutes=override,
         allow_email=allow_email == "on",
         allow_sms=allow_sms == "on",
         allow_mail=allow_mail == "on",
@@ -379,6 +384,7 @@ async def customers_update(
     lead_source: str = Form(""),
     next_service_due: str = Form(""),
     services: list[str] = Form(default=[]),
+    duration_override_minutes: str = Form(""),
     allow_email: str | None = Form(None),
     allow_sms: str | None = Form(None),
     allow_mail: str | None = Form(None),
@@ -401,6 +407,9 @@ async def customers_update(
             },
             status_code=400,
         )
+    override = None
+    if duration_override_minutes.strip().isdigit():
+        override = int(duration_override_minutes.strip())
     update_customer(
         db,
         customer,
@@ -418,6 +427,7 @@ async def customers_update(
         lead_source=lead_source.strip() or None,
         services=services,
         next_service_due=_parse_optional_date(next_service_due),
+        duration_override_minutes=override,
         allow_email=allow_email == "on",
         allow_sms=allow_sms == "on",
         allow_mail=allow_mail == "on",

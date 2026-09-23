@@ -34,3 +34,15 @@ class User(Base):
     business_goals = relationship(
         "BusinessGoals", back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    crews = relationship("Crew", back_populates="user", cascade="all, delete-orphan")
+    bookings = relationship("Booking", back_populates="user", cascade="all, delete-orphan")
+    service_packages = relationship(
+        "ServicePackage", back_populates="user", cascade="all, delete-orphan"
+    )
+    quotes = relationship("Quote", back_populates="user", cascade="all, delete-orphan")
+    customer_accounts = relationship(
+        "CustomerAccount", back_populates="user", cascade="all, delete-orphan"
+    )
+    scheduling_settings = relationship(
+        "SchedulingSettings", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )

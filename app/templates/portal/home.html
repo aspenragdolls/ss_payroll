@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Schedule Online{% endblock %}
+{% block content %}
+<div class="card" style="max-width:520px">
+  <h1>Customer scheduling</h1>
+  <p>Create an account or sign in to schedule service with your provider.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="get" action="#" onsubmit="var id=document.getElementById('biz').value.trim(); if(!id) return false; window.location='/portal/'+encodeURIComponent(id)+'/login'; return false;">
+    <label>Business ID or name</label>
+    <input type="text" id="biz" required placeholder="e.g. 1 or My Window Co">
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Sign in</button>
+      <button class="btn btn-secondary" type="button" onclick="var id=document.getElementById('biz').value.trim(); if(id) window.location='/portal/'+encodeURIComponent(id)+'/register'">Register</button>
+    </p>
+  </form>
+</div>
+{% endblock %}

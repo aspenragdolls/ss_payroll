@@ -336,12 +336,14 @@ async def create_event_for_user(
     location: str,
     start: datetime,
     end: datetime,
+    calendar_name: str | None = None,
 ) -> RawCalendarEvent:
     """Queue an Apple write in the background; return a local event immediately."""
     conn = get_active_connection(db, user_id)
     if not conn:
         raise CalendarWriteError("Apple Calendar is not connected. Connect it in Settings first.")
-    apple_id, password, calendar_name = _connection_credentials(conn)
+    apple_id, password, default_calendar = _connection_credentials(conn)
+    calendar_name = (calendar_name or "").strip() or default_calendar
     event = _local_event(
         event_id=str(uuid.uuid4()),
         title=title,

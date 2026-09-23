@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{% if crew %}Edit{% else %}New{% endif %} Crew — ss_payroll{% endblock %}
+{% block content %}
+<h1>{% if crew %}Edit Crew{% else %}New Crew{% endif %}</h1>
+{% if crew_rate %}<p>Current schedule rate: <strong>{{ crew_rate }}</strong></p>{% endif %}
+<div class="card">
+  <form method="post">
+    <label>Name</label>
+    <input type="text" name="name" value="{{ crew.name if crew else '' }}" required>
+
+    <label>Apple Calendar name</label>
+    <input type="text" name="apple_calendar_id" value="{{ crew.apple_calendar_id if crew and crew.apple_calendar_id else default_calendar }}" placeholder="{{ default_calendar or 'Work' }}">
+    <p class="muted">Uses the same Apple ID from Settings → Calendar. Leave blank to use the default connected calendar.</p>
+
+    <p><strong>Members</strong></p>
+    <div class="checkbox-row" style="flex-direction:column;align-items:flex-start">
+      {% for w in workers %}
+      <label>
+        <input type="checkbox" name="worker_ids" value="{{ w.id }}"
+          {% if w.id in selected_worker_ids %}checked{% endif %}>
+        {{ w.name }}
+        {% if w.schedule_dollars_per_hour %} (${{ w.schedule_dollars_per_hour }}/hr){% else %} (no schedule rate){% endif %}
+        {% if not w.is_active %} — inactive{% endif %}
+      </label>
+      {% else %}
+      <p>No workers yet. <a href="/workers/new">Add workers</a> first.</p>
+      {% endfor %}
+    </div>
+
+    <div class="checkbox-row">
+      <label><input type="checkbox" name="is_bookable_online" value="on" {% if not crew or crew.is_bookable_online %}checked{% endif %}> Bookable online</label>
+      <label><input type="checkbox" name="is_active" value="on" {% if not crew or crew.is_active %}checked{% endif %}> Active</label>
+    </div>
+
+    <p style="margin-top:1rem">
+      <button class="btn" type="submit">Save</button>
+      <a class="btn btn-secondary" href="/crews">Cancel</a>
+    </p>
+  </form>
+</div>
+{% endblock %}

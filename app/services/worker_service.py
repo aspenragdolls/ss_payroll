@@ -30,6 +30,7 @@ def create_worker(
     labor_pay_type: str | None = None,
     labor_percentage_tier: str | None = None,
     hourly_rate: Decimal | None = None,
+    schedule_dollars_per_hour: Decimal | None = None,
     notes: str | None = None,
 ) -> Worker:
     worker = Worker(
@@ -40,6 +41,7 @@ def create_worker(
         labor_pay_type=labor_pay_type,
         labor_percentage_tier=labor_percentage_tier,
         hourly_rate=hourly_rate,
+        schedule_dollars_per_hour=schedule_dollars_per_hour,
         notes=notes,
     )
     db.add(worker)

@@ -168,6 +168,18 @@
         <span class="ios-row-label">Calendar</span>
         <span class="ios-row-value"><span class="ios-cal-dot"></span>{{ calendar_name }}</span>
       </div>
+      {% if crews %}
+      <label class="ios-row">
+        <span class="ios-row-label">Crew</span>
+        <select class="ios-row-input" name="crew_id" id="crew_id">
+          <option value="">— (manual end time)</option>
+          {% for c in crews %}
+          <option value="{{ c.id }}" {% if values.crew_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="ios-when-hint">Selecting a crew sets end time from price ÷ crew schedule $/hr and saves a booking.</p>
+      {% endif %}
     </section>
 
     <section class="ios-group ios-notes-stack">

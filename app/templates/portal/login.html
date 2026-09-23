@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Sign in — {{ business.business_name }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px">
+  <h1>Sign in</h1>
+  <p>{{ business.business_name }}</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    <p style="margin-top:1rem"><button class="btn" type="submit">Sign in</button></p>
+  </form>
+  <p><a href="/portal/{{ business.id }}/register">Create an account</a></p>
+</div>
+{% endblock %}

@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.1.8", lifespan=lifespan)
+    app = FastAPI(title="ss_payroll", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -55,14 +55,29 @@ def create_app() -> FastAPI:
     templates.env.globals["static_version"] = app.version
     app.state.templates = templates
 
-    from app.routers import auth, calendar, customers, events, payroll, workers
+    from app.routers import (
+        auth,
+        calendar,
+        crews,
+        customers,
+        events,
+        packages,
+        payroll,
+        portal,
+        scheduling,
+        workers,
+    )
 
     app.include_router(auth.router)
     app.include_router(workers.router)
+    app.include_router(crews.router)
     app.include_router(customers.router)
     app.include_router(events.router)
     app.include_router(calendar.router)
     app.include_router(payroll.router)
+    app.include_router(packages.router)
+    app.include_router(scheduling.router)
+    app.include_router(portal.router)
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():

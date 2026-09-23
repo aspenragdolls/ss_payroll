@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Crews — ss_payroll{% endblock %}
+{% block content %}
+<h1>Crews</h1>
+<p><a class="btn" href="/crews/new">Add Crew</a></p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Members</th><th>Schedule rate</th><th>Apple calendar</th><th>Online</th><th>Active</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for c in crews %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>
+          {% for m in c.members %}
+            {{ m.worker.name if m.worker else '?' }}{% if not loop.last %}, {% endif %}
+          {% else %}
+            —
+          {% endfor %}
+        </td>
+        <td>${{ '%.2f'|format(rates[c.id]) }}/hr</td>
+        <td>{{ c.apple_calendar_id or '— (default)' }}</td>
+        <td>{{ 'Yes' if c.is_bookable_online else 'No' }}</td>
+        <td>{{ 'Yes' if c.is_active else 'No' }}</td>
+        <td><a href="/crews/{{ c.id }}/edit">Edit</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No crews yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

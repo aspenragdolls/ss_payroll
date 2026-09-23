@@ -64,21 +64,75 @@
   {%- endmacro %}
   {% if user %}
   <header>
-    <div><strong>{{ user.business_name }}</strong> — ss_payroll</div>
-    <nav>
-      <a href="/">Dashboard</a>
-      <a class="btn" href="/events">Apple Calendar</a>
-      <a href="/workers">Workers</a>
-      <a class="btn" href="/customers">Customers</a>
-      <a class="btn" href="/payroll/begin">Payroll</a>
-      <a href="/payroll/history">History</a>
-      <a href="/settings/payroll">Pay Setup</a>
-      <a href="/settings/calendar">Calendar</a>
-      <a href="/settings/accounting">Accounting</a>
-      <form action="/auth/logout" method="post" style="display:inline">
-        <button type="submit" class="btn btn-secondary" style="margin-left:1rem">Logout</button>
-      </form>
-      {{ theme_toggle_button() }}
+    <div class="header-brand"><strong>{{ user.business_name }}</strong> — ss_payroll</div>
+    <nav class="site-nav" aria-label="Main">
+      <a class="nav-link" href="/">Dashboard</a>
+
+      <div class="nav-item">
+        <button type="button" class="nav-trigger" aria-expanded="false" aria-haspopup="true">
+          Schedule
+          <svg class="nav-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a role="menuitem" href="/events">Apple Calendar</a>
+          <a role="menuitem" href="/bookings">Bookings</a>
+        </div>
+      </div>
+
+      <div class="nav-item">
+        <button type="button" class="nav-trigger" aria-expanded="false" aria-haspopup="true">
+          People
+          <svg class="nav-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a role="menuitem" href="/crews">Crews</a>
+          <a role="menuitem" href="/workers">Workers</a>
+          <a role="menuitem" href="/customers">Customers</a>
+        </div>
+      </div>
+
+      <div class="nav-item">
+        <button type="button" class="nav-trigger" aria-expanded="false" aria-haspopup="true">
+          Sales
+          <svg class="nav-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a role="menuitem" href="/packages">Packages</a>
+          <a role="menuitem" href="/quotes">Quotes</a>
+        </div>
+      </div>
+
+      <div class="nav-item">
+        <button type="button" class="nav-trigger" aria-expanded="false" aria-haspopup="true">
+          Payroll
+          <svg class="nav-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a role="menuitem" href="/payroll/begin">Run Payroll</a>
+          <a role="menuitem" href="/payroll/history">History</a>
+          <a role="menuitem" href="/reports/schedule-rates">Rate Feedback</a>
+        </div>
+      </div>
+
+      <div class="nav-item">
+        <button type="button" class="nav-trigger" aria-expanded="false" aria-haspopup="true">
+          Settings
+          <svg class="nav-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a role="menuitem" href="/settings/payroll">Pay Setup</a>
+          <a role="menuitem" href="/settings/calendar">Calendar</a>
+          <a role="menuitem" href="/settings/scheduling">Scheduling</a>
+          <a role="menuitem" href="/settings/accounting">Accounting</a>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <form action="/auth/logout" method="post">
+          <button type="submit" class="btn btn-secondary nav-logout">Logout</button>
+        </form>
+        {{ theme_toggle_button() }}
+      </div>
     </nav>
   </header>
   {% else %}
@@ -116,6 +170,49 @@
         applyTheme(next);
       });
     }
+  })();
+
+  (function () {
+    var nav = document.querySelector(".site-nav");
+    if (!nav) return;
+
+    var items = Array.prototype.slice.call(nav.querySelectorAll(".nav-item"));
+    var hoverCapable = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+    function setOpen(item, open) {
+      item.classList.toggle("is-open", open);
+      var trigger = item.querySelector(".nav-trigger");
+      if (trigger) trigger.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function closeAll(except) {
+      items.forEach(function (item) {
+        if (item !== except) setOpen(item, false);
+      });
+    }
+
+    items.forEach(function (item) {
+      var trigger = item.querySelector(".nav-trigger");
+      if (!trigger) return;
+
+      trigger.addEventListener("click", function (e) {
+        // Desktop uses CSS :hover / :focus-within; tap devices toggle.
+        if (hoverCapable.matches) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var willOpen = !item.classList.contains("is-open");
+        closeAll(item);
+        setOpen(item, willOpen);
+      });
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!nav.contains(e.target)) closeAll();
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeAll();
+    });
   })();
   </script>
 </body>

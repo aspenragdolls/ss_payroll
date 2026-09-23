@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Quotes — ss_payroll{% endblock %}
+{% block content %}
+<h1>Quotes</h1>
+<p><a class="btn" href="/quotes/new">New Quote</a></p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Customer</th><th>Amount</th><th>Status</th><th>Package</th><th>Expires</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for q in quotes %}
+      <tr>
+        <td>{{ q.customer.name if q.customer else '—' }}</td>
+        <td>${{ '%.2f'|format(q.amount) }}</td>
+        <td>{{ q.status }}</td>
+        <td>{{ q.package.name if q.package else '—' }}</td>
+        <td>{{ q.expires_at or '—' }}</td>
+        <td>
+          {% if q.status != 'accepted' %}
+          <form method="post" action="/quotes/{{ q.id }}/accept" style="display:inline">
+            <button class="btn" type="submit">Accept</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No quotes yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
