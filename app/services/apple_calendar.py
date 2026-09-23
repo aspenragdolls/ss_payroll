@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
@@ -17,6 +18,37 @@ NS = {
     "C": "urn:ietf:params:xml:ns:caldav",
     "CS": "http://calendarserver.org/ns/",
 }
+
+# Resolve calendar collection URLs once per account+name (PROPFIND chain is slow).
+_CALENDAR_URL_CACHE: dict[tuple[str, str], tuple[float, list[str]]] = {}
+_CALENDAR_URL_TTL_SECONDS = 600.0
+
+
+def _cached_calendar_urls(apple_id: str, calendar_name: str) -> list[str] | None:
+    key = (apple_id.lower(), calendar_name)
+    hit = _CALENDAR_URL_CACHE.get(key)
+    if not hit:
+        return None
+    expires_at, urls = hit
+    if time.monotonic() > expires_at:
+        _CALENDAR_URL_CACHE.pop(key, None)
+        return None
+    return list(urls)
+
+
+def _store_calendar_urls(apple_id: str, calendar_name: str, urls: list[str]) -> None:
+    key = (apple_id.lower(), calendar_name)
+    _CALENDAR_URL_CACHE[key] = (time.monotonic() + _CALENDAR_URL_TTL_SECONDS, list(urls))
+
+
+def clear_calendar_url_cache(apple_id: str | None = None) -> None:
+    if apple_id is None:
+        _CALENDAR_URL_CACHE.clear()
+        return
+    prefix = apple_id.lower()
+    for key in list(_CALENDAR_URL_CACHE):
+        if key[0] == prefix:
+            _CALENDAR_URL_CACHE.pop(key, None)
 
 
 class CalendarFetchError(Exception):
@@ -142,7 +174,14 @@ _LIST_CALENDARS_BODY = """<?xml version="1.0" encoding="utf-8" ?>
 async def _resolve_calendar_urls(
     client: httpx.AsyncClient,
     calendar_name: str,
+    *,
+    apple_id: str | None = None,
 ) -> list[str]:
+    if apple_id:
+        cached = _cached_calendar_urls(apple_id, calendar_name)
+        if cached is not None:
+            return cached
+
     principal_root = await _propfind(client, ICLOUD_BASE, _PRINCIPAL_BODY)
     principal_href = _find_first_href(principal_root, "D", "current-user-principal")
     if not principal_href:
@@ -161,7 +200,10 @@ async def _resolve_calendar_urls(
         raise CalendarFetchError(
             f'Calendar "{calendar_name}" was not found in your iCloud account.'
         )
-    return [urljoin(home_url, href) for href in calendar_hrefs]
+    urls = [urljoin(home_url, href) for href in calendar_hrefs]
+    if apple_id:
+        _store_calendar_urls(apple_id, calendar_name, urls)
+    return urls
 
 
 def _auth_client(apple_id: str, app_password: str) -> httpx.AsyncClient:
@@ -223,7 +265,7 @@ async def fetch_apple_calendar_events(
 ) -> list[RawCalendarEvent]:
     async with _auth_client(apple_id, app_password) as client:
         try:
-            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name, apple_id=apple_id)
             query_body = _calendar_query_body(start, end)
             all_events: list[RawCalendarEvent] = []
             seen_ids: set[str] = set()
@@ -267,7 +309,7 @@ async def create_apple_calendar_event(
     )
     async with _auth_client(apple_id, app_password) as client:
         try:
-            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name, apple_id=apple_id)
             calendar_url = calendar_urls[0]
             if not calendar_url.endswith("/"):
                 calendar_url += "/"
@@ -328,7 +370,7 @@ async def get_apple_calendar_event(
 ) -> RawCalendarEvent | None:
     async with _auth_client(apple_id, app_password) as client:
         try:
-            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name, apple_id=apple_id)
             for calendar_url in calendar_urls:
                 if not calendar_url.endswith("/"):
                     calendar_url += "/"
@@ -358,7 +400,7 @@ async def delete_apple_calendar_event(
     deleted = False
     async with _auth_client(apple_id, app_password) as client:
         try:
-            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name, apple_id=apple_id)
             for calendar_url in calendar_urls:
                 if not calendar_url.endswith("/"):
                     calendar_url += "/"

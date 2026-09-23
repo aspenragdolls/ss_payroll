@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,7 +8,13 @@ import pytest
 from app.models.calendar import CalendarConnection
 from app.models.customer import Customer
 from app.services.apple_calendar import delete_apple_calendar_event
-from app.services.calendar_sync_service import sync_calendar_to_app
+from app.services.calendar_sync_service import (
+    _utc_now,
+    list_active_calendar_user_ids,
+    schedule_calendar_sync,
+    sync_calendar_to_app,
+    sync_due_connections,
+)
 from app.services.event_format import build_event_description, build_event_title
 from app.services.event_parse import parse_event_for_app, parse_title_name_price
 from app.services.schemas import RawCalendarEvent
@@ -161,7 +168,7 @@ async def test_sync_skips_when_recently_synced():
         access_token_encrypted="enc",
         calendar_id="Work",
         is_active=True,
-        last_synced_at=datetime.utcnow(),
+        last_synced_at=_utc_now(),
     )
     db = MagicMock()
     with (
@@ -178,3 +185,58 @@ async def test_sync_skips_when_recently_synced():
 
     assert result.skipped is True
     fetch.assert_not_awaited()
+
+
+def test_list_active_calendar_user_ids_dedupes():
+    db = MagicMock()
+    scalars = MagicMock()
+    scalars.all.return_value = [1, 1, 2]
+    db.scalars.return_value = scalars
+    assert list_active_calendar_user_ids(db) == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_sync_due_connections_skips_recent():
+    with (
+        patch(
+            "app.services.calendar_sync_service.SessionLocal",
+        ) as session_local,
+        patch(
+            "app.services.calendar_sync_service.list_active_calendar_user_ids",
+            return_value=[1],
+        ),
+        patch(
+            "app.services.calendar_sync_service.sync_calendar_to_app",
+            new=AsyncMock(return_value=MagicMock(skipped=True)),
+        ) as sync,
+    ):
+        list_db = MagicMock()
+        sync_db = MagicMock()
+        session_local.side_effect = [list_db, sync_db]
+        attempted = await sync_due_connections()
+
+    assert attempted == 0
+    sync.assert_awaited_once_with(sync_db, 1, force=False)
+    list_db.close.assert_called_once()
+    sync_db.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_schedule_calendar_sync_creates_task():
+    with patch(
+        "app.services.calendar_sync_service._run_sync_safe",
+        new=AsyncMock(),
+    ) as run_safe:
+        schedule_calendar_sync(42, force=True)
+        await asyncio.sleep(0)
+
+    run_safe.assert_awaited_once_with(42, force=True)
+
+
+def test_main_has_no_page_load_sync_middleware():
+    import app.main as main_mod
+
+    assert not hasattr(main_mod, "CalendarSyncMiddleware")
+    from app.main import app
+
+    assert "CalendarSyncMiddleware" not in repr(app.user_middleware)

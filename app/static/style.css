@@ -173,11 +173,54 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
 
 /* iPhone Safari event entry (Apple Calendar–like) */
 .ios-event-page {
-  background: #000;
-  color: #f5f5f7;
+  --ios-bg: #000;
+  --ios-fg: #f5f5f7;
+  --ios-fg-primary: #fff;
+  --ios-fg-secondary: #8e8e93;
+  --ios-group-bg: #1c1c1e;
+  --ios-separator: #2c2c2e;
+  --ios-separator-strong: #3a3a3c;
+  --ios-pill-bg: #2c2c2e;
+  --ios-accent: #0a84ff;
+  --ios-accent-fg: #fff;
+  --ios-danger: #ff453a;
+  --ios-danger-soft-bg: #3a1515;
+  --ios-danger-soft-fg: #ff6961;
+  --ios-success-bg: #0f2a1c;
+  --ios-success-fg: #30d158;
+  --ios-suggest-bg: #2c2c2e;
+  --ios-suggest-hover: #3a3a3c;
+  --ios-suggest-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --ios-cal-dot: #ffd60a;
+  --ios-color-scheme: dark;
+  background: var(--ios-bg);
+  color: var(--ios-fg);
   min-height: 100vh;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  color-scheme: var(--ios-color-scheme);
+}
+.ios-event-page[data-theme="light"] {
+  --ios-bg: #f2f2f7;
+  --ios-fg: #1c1c1e;
+  --ios-fg-primary: #000;
+  --ios-fg-secondary: #8e8e93;
+  --ios-group-bg: #fff;
+  --ios-separator: rgba(60, 60, 67, 0.12);
+  --ios-separator-strong: rgba(60, 60, 67, 0.18);
+  --ios-pill-bg: rgba(120, 120, 128, 0.16);
+  --ios-accent: #007aff;
+  --ios-accent-fg: #fff;
+  --ios-danger: #ff3b30;
+  --ios-danger-soft-bg: #ffe5e3;
+  --ios-danger-soft-fg: #d70015;
+  --ios-success-bg: #e5f8eb;
+  --ios-success-fg: #248a3d;
+  --ios-suggest-bg: #fff;
+  --ios-suggest-hover: #f2f2f7;
+  --ios-suggest-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  --ios-cal-dot: #ffcc00;
+  --ios-color-scheme: light;
 }
 .ios-event {
   max-width: 430px;
@@ -190,6 +233,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.85rem;
   background: transparent;
   padding: 0;
@@ -198,8 +242,8 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
 .ios-pill {
   appearance: none;
   border: none;
-  background: #2c2c2e;
-  color: #0a84ff;
+  background: var(--ios-pill-bg);
+  color: var(--ios-accent);
   font-size: 1rem;
   font-weight: 500;
   padding: 0.4rem 0.85rem;
@@ -209,13 +253,43 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   line-height: 1.2;
 }
 .ios-pill-primary {
-  color: #fff;
-  background: #0a84ff;
+  color: var(--ios-accent-fg);
+  background: var(--ios-accent);
   font-weight: 600;
 }
 .ios-pill:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.ios-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+.ios-theme-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ios-theme-toggle .ios-theme-icon-moon {
+  fill: currentColor;
+  stroke: none;
+}
+/* Dark → show sun (switch to light); light → show moon (switch to dark) */
+.ios-theme-toggle .ios-theme-icon-moon,
+.ios-event-page[data-theme="light"] .ios-theme-toggle .ios-theme-icon-sun {
+  display: none;
+}
+.ios-event-page[data-theme="light"] .ios-theme-toggle .ios-theme-icon-moon {
+  display: block;
 }
 .ios-banner {
   border-radius: 12px;
@@ -224,23 +298,24 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   font-size: 0.95rem;
 }
 .ios-banner-error {
-  background: #3a1515;
-  color: #ff6961;
+  background: var(--ios-danger-soft-bg);
+  color: var(--ios-danger-soft-fg);
 }
 .ios-banner-ok {
-  background: #0f2a1c;
-  color: #30d158;
+  background: var(--ios-success-bg);
+  color: var(--ios-success-fg);
 }
 .ios-delete-wrap {
-  margin: 1.25rem 0 2rem;
+  margin: 1.25rem auto 2rem;
   padding: 0 0.25rem;
+  max-width: 430px;
 }
 .ios-delete-btn {
   width: 100%;
   border: 0;
   border-radius: 12px;
-  background: #1c1c1e;
-  color: #ff453a;
+  background: var(--ios-group-bg);
+  color: var(--ios-danger);
   font-size: 1.05rem;
   font-weight: 500;
   padding: 0.95rem 1rem;
@@ -250,7 +325,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   opacity: 0.75;
 }
 .ios-group {
-  background: #1c1c1e;
+  background: var(--ios-group-bg);
   border-radius: 12px;
   margin-bottom: 0.85rem;
   overflow: visible;
@@ -264,7 +339,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   max-width: none;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--ios-fg-primary);
   font-size: 1.55rem;
   font-weight: 700;
   padding: 0.15rem 0;
@@ -275,7 +350,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   max-width: none;
   background: transparent;
   border: none;
-  color: #ff453a;
+  color: var(--ios-danger);
   font-size: 1.05rem;
   padding: 0.35rem 0 0.55rem;
   outline: none;
@@ -295,7 +370,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   appearance: none;
   border: none;
   background: transparent;
-  color: #fff;
+  color: var(--ios-fg-primary);
   padding: 0;
   margin: 0;
   text-align: left;
@@ -322,7 +397,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   gap: 0.2rem;
   margin: 0;
   font-weight: 500;
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   font-size: 0.72rem;
 }
 .ios-when-picker input {
@@ -331,19 +406,19 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   background: transparent;
   border: none;
   border-radius: 0;
-  color: #fff;
+  color: var(--ios-fg-primary);
   padding: 0.15rem 0;
   font-size: 0.95rem;
-  color-scheme: dark;
+  color-scheme: var(--ios-color-scheme);
 }
 .ios-when-hint {
   margin: 0.45rem 0 0;
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   font-size: 0.75rem;
 }
 .ios-title-preview {
   margin: 0.75rem 0 0;
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   font-size: 0.9rem;
 }
 .ios-row {
@@ -354,7 +429,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   margin: 0;
   padding: 0.85rem 1rem;
   font-weight: 500;
-  border-bottom: 1px solid #2c2c2e;
+  border-bottom: 1px solid var(--ios-separator);
 }
 .ios-row:last-child {
   border-bottom: none;
@@ -363,7 +438,7 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   font-weight: 400;
 }
 .ios-row-label {
-  color: #fff;
+  color: var(--ios-fg-primary);
   flex-shrink: 0;
 }
 .ios-row-input {
@@ -373,14 +448,14 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   text-align: right;
   background: transparent;
   border: none;
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   font-size: 1rem;
   padding: 0;
   outline: none;
-  color-scheme: dark;
+  color-scheme: var(--ios-color-scheme);
 }
 .ios-row-input:focus {
-  color: #fff;
+  color: var(--ios-fg-primary);
 }
 select.ios-row-input {
   appearance: none;
@@ -390,7 +465,7 @@ select.ios-row-input {
   padding-right: 1rem;
 }
 .ios-row-value {
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -399,7 +474,7 @@ select.ios-row-input {
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 50%;
-  background: #ffd60a;
+  background: var(--ios-cal-dot);
   display: inline-block;
 }
 .ios-section-title {
@@ -407,10 +482,10 @@ select.ios-row-input {
   padding: 0.85rem 1rem 0.25rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--ios-fg-primary);
 }
 .ios-notes-stack .ios-row {
-  border-bottom: 1px solid #2c2c2e;
+  border-bottom: 1px solid var(--ios-separator);
 }
 .ios-notes-field {
   display: block;
@@ -423,7 +498,7 @@ select.ios-row-input {
   max-width: none;
   background: transparent;
   border: none;
-  color: #ff453a;
+  color: var(--ios-danger);
   font-size: 1rem;
   resize: vertical;
   padding: 0.25rem 0;
@@ -446,9 +521,9 @@ select.ios-row-input {
   right: 0.5rem;
   top: 3.1rem;
   z-index: 20;
-  background: #2c2c2e;
+  background: var(--ios-suggest-bg);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--ios-suggest-shadow);
   overflow: hidden;
 }
 .ios-suggest-item {
@@ -459,20 +534,432 @@ select.ios-row-input {
   width: 100%;
   border: none;
   background: transparent;
-  color: #fff;
+  color: var(--ios-fg-primary);
   text-align: left;
   padding: 0.7rem 0.85rem;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid var(--ios-separator-strong);
   cursor: pointer;
 }
 .ios-suggest-item:last-child {
   border-bottom: none;
 }
 .ios-suggest-item span {
-  color: #8e8e93;
+  color: var(--ios-fg-secondary);
   font-size: 0.85rem;
 }
 .ios-suggest-item:active,
 .ios-suggest-item:hover {
+  background: var(--ios-suggest-hover);
+}
+
+/* Apple Calendar viewer (list / month / year) */
+.ios-cal-page {
+  margin: 0;
+  min-height: 100vh;
+  background: #000;
+  color: #f5f5f7;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+.ios-cal {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  position: relative;
+}
+.ios-cal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.75rem 0.45rem;
+  flex-shrink: 0;
+  background: #000;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.ios-cal-back {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #0a84ff;
+  font-size: 1.05rem;
+  font-weight: 400;
+  padding: 0.35rem 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+}
+.ios-cal-chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-left: 2.5px solid #0a84ff;
+  border-bottom: 2.5px solid #0a84ff;
+  transform: rotate(45deg);
+  margin-right: 0.2rem;
+  margin-top: -0.05rem;
+}
+.ios-cal-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.ios-cal-icon-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #0a84ff;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+}
+.ios-cal-icon-btn.is-active {
+  background: #1c1c1e;
+}
+.ios-cal-add {
+  font-size: 1.5rem;
+  font-weight: 300;
+}
+.ios-cal-search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0 0.75rem 0.55rem;
+}
+.ios-cal-search[hidden] {
+  display: none !important;
+}
+.ios-cal-search input {
+  flex: 1;
+  max-width: none;
+  background: #1c1c1e;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  padding: 0.55rem 0.75rem;
+  font-size: 1rem;
+  color-scheme: dark;
+}
+.ios-cal-search button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #0a84ff;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  font-family: inherit;
+}
+.ios-cal-banner {
+  margin: 0 0.75rem 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.ios-cal-banner-error {
+  background: #3a1515;
+  color: #ff6961;
+}
+.ios-cal-banner-warn {
+  background: #1c1c1e;
+  color: #8e8e93;
+}
+.ios-cal-banner-warn a {
+  color: #0a84ff;
+}
+.ios-cal-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 5.5rem;
+}
+.ios-cal-empty {
+  padding: 3rem 1.25rem;
+  text-align: center;
+  color: #8e8e93;
+  font-size: 1.05rem;
+}
+
+/* List view (screenshot landing) */
+.ios-cal-list {
+  padding: 0 0.15rem;
+}
+.ios-cal-day {
+  margin: 0 0 0.35rem;
+}
+.ios-cal-day-head {
+  padding: 0.55rem 1rem 0.15rem;
+}
+.ios-cal-day-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.ios-cal-day-head.is-today .ios-cal-day-title,
+.ios-cal-day-head.is-today .ios-cal-day-week {
+  color: #ff453a;
+}
+.ios-cal-day-week {
+  margin: 0.1rem 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #8e8e93;
+}
+.ios-cal-day-empty {
+  margin: 0;
+  padding: 0.35rem 1rem 0.75rem;
+  color: #8e8e93;
+  font-size: 0.95rem;
+  border-top: 1px solid #2c2c2e;
+}
+.ios-cal-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ios-cal-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.55rem 1rem 0.55rem 0.85rem;
+  text-decoration: none;
+  color: inherit;
+  border-top: 1px solid #2c2c2e;
+  min-height: 3.1rem;
+}
+.ios-cal-event-bar {
+  width: 3px;
+  align-self: stretch;
+  min-height: 2.4rem;
+  border-radius: 2px;
+  background: #ffd60a;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.ios-cal-event-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+.ios-cal-event-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.25;
+  word-break: break-word;
+}
+.ios-cal-event-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #8e8e93;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+.ios-cal-pin {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.ios-cal-event-times {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  color: #8e8e93;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  padding-top: 0.05rem;
+}
+
+/* Month view */
+.ios-cal-month {
+  padding: 0.25rem 0.85rem 1rem;
+}
+.ios-cal-month-title {
+  margin: 0 0 0.75rem;
+  font-size: 2.15rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.ios-cal-month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  color: #8e8e93;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.ios-cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem 0;
+}
+.ios-cal-mday {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #fff;
+  min-height: 3.1rem;
+  padding: 0.35rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 0;
+}
+.ios-cal-mday.is-pad {
+  pointer-events: none;
+}
+.ios-cal-mday-num {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+.ios-cal-mday.is-today .ios-cal-mday-num {
+  background: #ff453a;
+  color: #fff;
+  font-weight: 600;
+}
+.ios-cal-mday.is-selected:not(.is-today) .ios-cal-mday-num {
   background: #3a3a3c;
+}
+.ios-cal-mday-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffd60a;
+}
+
+/* Year view */
+.ios-cal-year {
+  padding: 0.25rem 0.65rem 1rem;
+}
+.ios-cal-year-title {
+  margin: 0 0 0.85rem 0.35rem;
+  font-size: 2.15rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.ios-cal-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem 0.55rem;
+}
+.ios-cal-mini-month {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ios-cal-mini-month h2 {
+  margin: 0 0 0.25rem 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+.ios-cal-mini-month h2.is-today {
+  color: #ff453a;
+}
+.ios-cal-mini-weekdays,
+.ios-cal-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+.ios-cal-mini-weekdays {
+  color: #8e8e93;
+  font-size: 0.55rem;
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}
+.ios-cal-mini-grid span {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #fff;
+  padding: 0.08rem 0;
+}
+.ios-cal-mini-grid span.is-today {
+  color: #fff;
+  background: #ff453a;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+/* Bottom chrome */
+.ios-cal-bottom {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(0.85rem, env(safe-area-inset-bottom));
+  width: min(430px, 100%);
+  padding: 0 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 6;
+}
+.ios-cal-today-btn,
+.ios-cal-bottom-right {
+  pointer-events: auto;
+}
+.ios-cal-today-btn {
+  appearance: none;
+  border: none;
+  background: #2c2c2e;
+  color: #0a84ff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.55rem 1.1rem;
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+.ios-cal-bottom-right {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: #2c2c2e;
+  border-radius: 980px;
+  padding: 0.15rem 0.25rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+.ios-cal-bottom-right .ios-cal-icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
 }

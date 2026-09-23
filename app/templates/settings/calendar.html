@@ -8,8 +8,9 @@
 <div class="card">
   {% if connection and connection.is_active %}
   <p>Connected to <strong>{{ connection.calendar_id }}</strong> using Apple ID <strong>{{ connection.external_account_id }}</strong>.</p>
+  <p>Events stay in sync both ways: changes in the app write to this calendar, and calendar creates/edits/deletes update customers in the background (periodically and after you save from the app).</p>
   {% else %}
-  <p>Link your iCloud calendar so payroll can import jobs from your schedule.</p>
+  <p>Link your iCloud calendar so the app and your schedule stay in sync, and payroll can import jobs.</p>
   {% endif %}
 
   <form method="post" action="/settings/calendar/connect">

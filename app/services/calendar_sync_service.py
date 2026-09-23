@@ -1,7 +1,13 @@
-"""Bidirectional sync between Apple Calendar events and customer CRM records."""
+"""Bidirectional sync between Apple Calendar events and customer CRM records.
+
+Sync runs in the background on a timer and after app→Apple writes finish — never
+on page load. App→Apple create/update/delete are also queued in the background
+so the UI can redirect immediately.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -9,6 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db import SessionLocal
 from app.models.calendar import CalendarConnection
 from app.models.customer import Customer
 from app.services.calendar_service import (
@@ -30,8 +37,11 @@ logger = logging.getLogger(__name__)
 SYNC_LOOKBACK_DAYS = 14
 SYNC_LOOKAHEAD_DAYS = 180
 
-# Skip a second CalDAV round-trip if we just synced (page-load debounce).
-MIN_SYNC_INTERVAL = timedelta(seconds=20)
+# Skip non-forced CalDAV pulls if we synced recently (periodic debounce).
+MIN_SYNC_INTERVAL = timedelta(minutes=5)
+
+# How often the background loop checks for connections due to sync.
+PERIODIC_SYNC_TICK_SECONDS = 60
 
 
 @dataclass
@@ -66,6 +76,18 @@ def _clear_calendar_link(db: Session, customer: Customer) -> None:
     for key, value in fields.items():
         setattr(customer, key, value)
     db.commit()
+
+
+def list_active_calendar_user_ids(db: Session) -> list[int]:
+    rows = db.scalars(
+        select(CalendarConnection.user_id).where(
+            CalendarConnection.is_active.is_(True),
+            CalendarConnection.access_token_encrypted.is_not(None),
+            CalendarConnection.external_account_id.is_not(None),
+            CalendarConnection.calendar_id.is_not(None),
+        )
+    ).all()
+    return list(dict.fromkeys(int(uid) for uid in rows))
 
 
 async def sync_calendar_to_app(
@@ -165,3 +187,58 @@ async def sync_calendar_to_app(
         db.commit()
 
     return CalendarSyncResult(upserted=upserted, cleared=cleared)
+
+
+async def _run_sync_safe(user_id: int, *, force: bool) -> None:
+    db = SessionLocal()
+    try:
+        await sync_calendar_to_app(db, user_id, force=force)
+    except Exception:  # noqa: BLE001
+        logger.exception("Background calendar sync failed for user %s", user_id)
+    finally:
+        db.close()
+
+
+def schedule_calendar_sync(user_id: int, *, force: bool = True) -> None:
+    """Fire-and-forget pull sync — used after app→Apple writes and on connect."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(_run_sync_safe(user_id, force=force))
+
+
+async def sync_due_connections() -> int:
+    """Sync every active connection that is past MIN_SYNC_INTERVAL. Returns count attempted."""
+    db = SessionLocal()
+    try:
+        user_ids = list_active_calendar_user_ids(db)
+    finally:
+        db.close()
+
+    attempted = 0
+    for user_id in user_ids:
+        db = SessionLocal()
+        try:
+            result = await sync_calendar_to_app(db, user_id, force=False)
+            if not result.skipped:
+                attempted += 1
+        except Exception:  # noqa: BLE001
+            logger.exception("Periodic calendar sync failed for user %s", user_id)
+        finally:
+            db.close()
+    return attempted
+
+
+async def run_periodic_calendar_sync(stop: asyncio.Event) -> None:
+    """Background loop: pull Apple → app for due connections until stop is set."""
+    while not stop.is_set():
+        try:
+            await sync_due_connections()
+        except Exception:  # noqa: BLE001
+            logger.exception("Periodic calendar sync tick failed")
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=PERIODIC_SYNC_TICK_SECONDS)
+            break
+        except asyncio.TimeoutError:
+            continue

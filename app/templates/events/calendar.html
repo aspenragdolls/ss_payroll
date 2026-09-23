@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SS Payroll">
+  <meta name="theme-color" content="#000000">
+  <title>Apple Calendar — ss_payroll</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/static/icons/app-icon-180.png?v={{ static_version }}">
+  <link rel="manifest" href="/static/manifest.json?v={{ static_version }}">
+  <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
+</head>
+<body class="ios-cal-page" data-connected="{{ '1' if connected else '0' }}" data-calendar-name="{{ calendar_name }}">
+  <div class="ios-cal" id="ios-cal">
+    <header class="ios-cal-top" id="cal-top">
+      <button type="button" class="ios-cal-back" id="nav-back" aria-label="Month">
+        <span class="ios-cal-chevron" aria-hidden="true"></span>
+        <span id="nav-back-label">September</span>
+      </button>
+      <div class="ios-cal-top-actions">
+        <button type="button" class="ios-cal-icon-btn is-active" id="btn-list" aria-label="List view" title="List">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+        </button>
+        <button type="button" class="ios-cal-icon-btn" id="btn-search" aria-label="Search" title="Search">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 5L20.49 19l-5-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        </button>
+        <a class="ios-cal-icon-btn ios-cal-add" href="/events/new" aria-label="New event" title="New event">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <div class="ios-cal-search" id="search-bar" hidden>
+      <input type="search" id="search-input" placeholder="Search" enterkeyhint="search" autocomplete="off">
+      <button type="button" id="search-cancel">Cancel</button>
+    </div>
+
+    <p class="ios-cal-banner ios-cal-banner-error" id="cal-error" hidden></p>
+    {% if not connected %}
+    <p class="ios-cal-banner ios-cal-banner-warn">
+      Apple Calendar is not connected.
+      <a href="/settings/calendar">Connect in Settings</a>
+    </p>
+    {% endif %}
+
+    <main class="ios-cal-body" id="cal-body"></main>
+
+    <footer class="ios-cal-bottom">
+      <button type="button" class="ios-cal-today-btn" id="btn-today">Today</button>
+      <div class="ios-cal-bottom-right">
+        <a class="ios-cal-icon-btn" href="/settings/calendar" aria-label="Calendars" title="Calendars">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+        </a>
+        <a class="ios-cal-icon-btn" href="/" aria-label="Home" title="Home">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zM6 10h8v2H6v-2zm0 4h12v2H6v-2z"/></svg>
+        </a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+  (function () {
+    const MONTHS = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const MONTHS_SHORT = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+    const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const WEEKDAYS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
+
+    const body = document.getElementById("cal-body");
+    const navBack = document.getElementById("nav-back");
+    const navBackLabel = document.getElementById("nav-back-label");
+    const btnToday = document.getElementById("btn-today");
+    const btnList = document.getElementById("btn-list");
+    const btnSearch = document.getElementById("btn-search");
+    const searchBar = document.getElementById("search-bar");
+    const searchInput = document.getElementById("search-input");
+    const searchCancel = document.getElementById("search-cancel");
+    const errorEl = document.getElementById("cal-error");
+    const connected = document.body.dataset.connected === "1";
+
+    const state = {
+      view: "list", // list | month | year
+      focus: startOfDay(new Date()),
+      events: [],
+      query: "",
+      loading: false,
+    };
+
+    function pad(n) { return String(n).padStart(2, "0"); }
+
+    function startOfDay(d) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function ymd(d) {
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    }
+
+    function parseIsoLocal(iso) {
+      const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (!m) return null;
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+    }
+
+    function isoWeek(d) {
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = date.getUTCDay() || 7;
+      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function formatTime(d) {
+      let h = d.getHours();
+      const m = d.getMinutes();
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12;
+      if (h === 0) h = 12;
+      return h + ":" + pad(m) + " " + ampm;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function sameDay(a, b) {
+      return a.getFullYear() === b.getFullYear()
+        && a.getMonth() === b.getMonth()
+        && a.getDate() === b.getDate();
+    }
+
+    function daysInMonth(year, month) {
+      return new Date(year, month + 1, 0).getDate();
+    }
+
+    function showError(msg) {
+      if (!msg) {
+        errorEl.hidden = true;
+        errorEl.textContent = "";
+        return;
+      }
+      errorEl.hidden = false;
+      errorEl.textContent = msg;
+    }
+
+    async function loadEvents() {
+      if (!connected) {
+        state.events = [];
+        return;
+      }
+      const focus = state.focus;
+      let start;
+      let end;
+      if (state.view === "year") {
+        start = new Date(focus.getFullYear(), 0, 1);
+        end = new Date(focus.getFullYear(), 11, 31);
+      } else if (state.view === "month") {
+        start = new Date(focus.getFullYear(), focus.getMonth(), 1);
+        end = new Date(focus.getFullYear(), focus.getMonth() + 1, 0);
+      } else {
+        // List: current month ± a bit for scrolling continuity
+        start = new Date(focus.getFullYear(), focus.getMonth() - 1, 1);
+        end = new Date(focus.getFullYear(), focus.getMonth() + 2, 0);
+      }
+      state.loading = true;
+      try {
+        const res = await fetch(
+          "/api/events?start=" + encodeURIComponent(ymd(start))
+          + "&end=" + encodeURIComponent(ymd(end))
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          showError(data.error || "Could not load events.");
+          state.events = [];
+        } else {
+          showError(data.error || "");
+          state.events = (data.events || []).map(function (ev) {
+            return {
+              id: ev.id,
+              title: ev.title || "(No title)",
+              location: ev.location || "",
+              start: parseIsoLocal(ev.start),
+              end: parseIsoLocal(ev.end),
+            };
+          }).filter(function (ev) { return ev.start && ev.end; });
+        }
+      } catch (e) {
+        showError("Could not reach calendar.");
+        state.events = [];
+      } finally {
+        state.loading = false;
+      }
+    }
+
+    function filteredEvents() {
+      const q = state.query.trim().toLowerCase();
+      if (!q) return state.events.slice();
+      return state.events.filter(function (ev) {
+        return (ev.title + " " + ev.location).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    function updateChrome() {
+      const focus = state.focus;
+      const monthName = MONTHS[focus.getMonth()];
+      document.body.dataset.view = state.view;
+
+      if (state.view === "list") {
+        navBackLabel.textContent = monthName;
+        navBack.setAttribute("aria-label", "Show month");
+        btnList.classList.add("is-active");
+      } else if (state.view === "month") {
+        navBackLabel.textContent = String(focus.getFullYear());
+        navBack.setAttribute("aria-label", "Show year");
+        btnList.classList.remove("is-active");
+      } else {
+        navBackLabel.textContent = "Calendar";
+        navBack.setAttribute("aria-label", "Back to app");
+        btnList.classList.remove("is-active");
+      }
+    }
+
+    function daySectionHtml(day, dayEvents) {
+      const today = startOfDay(new Date());
+      const key = ymd(day);
+      const isToday = sameDay(day, today);
+      const label = WEEKDAYS[day.getDay()] + " – " + MONTHS_SHORT[day.getMonth()] + " " + day.getDate();
+      const week = "W" + isoWeek(day);
+      let html = '<section class="ios-cal-day" data-day="' + key + '"'
+        + (isToday ? ' id="cal-today-anchor"' : "") + ">";
+      html += '<header class="ios-cal-day-head' + (isToday ? " is-today" : "") + '">';
+      html += '<h2 class="ios-cal-day-title">' + escapeHtml(label) + "</h2>";
+      html += '<p class="ios-cal-day-week">' + week + "</p>";
+      html += "</header>";
+      if (!dayEvents.length) {
+        html += '<p class="ios-cal-day-empty">No Events</p>';
+      } else {
+        html += '<ul class="ios-cal-event-list">';
+        dayEvents.forEach(function (ev) {
+          html += '<li>';
+          html += '<a class="ios-cal-event" href="/events/' + encodeURIComponent(ev.id) + '/edit">';
+          html += '<span class="ios-cal-event-bar" aria-hidden="true"></span>';
+          html += '<span class="ios-cal-event-main">';
+          html += '<span class="ios-cal-event-title">' + escapeHtml(ev.title) + "</span>";
+          if (ev.location) {
+            html += '<span class="ios-cal-event-loc">'
+              + '<svg class="ios-cal-pin" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">'
+              + '<path fill="currentColor" d="M6 0C3.8 0 2 1.8 2 4c0 3 4 8 4 8s4-5 4-8c0-2.2-1.8-4-4-4zm0 5.5A1.5 1.5 0 1 1 6 2.5a1.5 1.5 0 0 1 0 3z"/>'
+              + "</svg>"
+              + escapeHtml(ev.location) + "</span>";
+          }
+          html += "</span>";
+          html += '<span class="ios-cal-event-times">'
+            + '<span>' + formatTime(ev.start) + "</span>"
+            + '<span>' + formatTime(ev.end) + "</span>"
+            + "</span>";
+          html += "</a></li>";
+        });
+        html += "</ul>";
+      }
+      html += "</section>";
+      return html;
+    }
+
+    function renderList() {
+      const today = startOfDay(new Date());
+      const events = filteredEvents().sort(function (a, b) { return a.start - b.start; });
+      const byDay = {};
+      events.forEach(function (ev) {
+        const key = ymd(ev.start);
+        if (!byDay[key]) byDay[key] = [];
+        byDay[key].push(ev);
+      });
+
+      // Always include today and the focused day so the list anchors like Apple Calendar.
+      const ensure = [ymd(today), ymd(state.focus)];
+      ensure.forEach(function (key) {
+        if (!byDay[key]) byDay[key] = [];
+      });
+
+      const keys = Object.keys(byDay).sort();
+      if (!keys.length) {
+        body.innerHTML = '<div class="ios-cal-empty">'
+          + (state.loading ? "Loading…" : (state.query ? "No matching events." : "No Events"))
+          + "</div>";
+        return;
+      }
+
+      let html = '<div class="ios-cal-list">';
+      keys.forEach(function (key) {
+        const day = parseIsoLocal(key + "T00:00");
+        html += daySectionHtml(day, byDay[key]);
+      });
+      html += "</div>";
+      body.innerHTML = html;
+
+      const todayEl = document.getElementById("cal-today-anchor");
+      const focusEl = document.querySelector('.ios-cal-day[data-day="' + ymd(state.focus) + '"]');
+      const target = (sameDay(state.focus, today) ? todayEl : focusEl) || todayEl || focusEl;
+      if (target) {
+        requestAnimationFrame(function () {
+          target.scrollIntoView({ block: "start" });
+        });
+      }
+    }
+
+    function eventDotsForDay(day) {
+      const key = ymd(day);
+      return state.events.some(function (ev) { return ymd(ev.start) === key; });
+    }
+
+    function renderMonth() {
+      const focus = state.focus;
+      const year = focus.getFullYear();
+      const month = focus.getMonth();
+      const today = startOfDay(new Date());
+      const first = new Date(year, month, 1);
+      const startPad = first.getDay(); // Sunday=0
+      const total = daysInMonth(year, month);
+
+      let html = '<div class="ios-cal-month">';
+      html += '<h1 class="ios-cal-month-title">' + MONTHS[month] + "</h1>";
+      html += '<div class="ios-cal-month-weekdays">';
+      WEEKDAYS_SHORT.forEach(function (d) {
+        html += '<span>' + d + "</span>";
+      });
+      html += '</div><div class="ios-cal-month-grid">';
+
+      for (let i = 0; i < startPad; i++) {
+        html += '<span class="ios-cal-mday is-pad"></span>';
+      }
+      for (let day = 1; day <= total; day++) {
+        const d = new Date(year, month, day);
+        const classes = ["ios-cal-mday"];
+        if (sameDay(d, today)) classes.push("is-today");
+        if (sameDay(d, focus)) classes.push("is-selected");
+        const has = eventDotsForDay(d);
+        html += '<button type="button" class="' + classes.join(" ") + '" data-day="' + ymd(d) + '">';
+        html += '<span class="ios-cal-mday-num">' + day + "</span>";
+        if (has) html += '<span class="ios-cal-mday-dot" aria-hidden="true"></span>';
+        html += "</button>";
+      }
+      html += "</div></div>";
+      body.innerHTML = html;
+
+      Array.from(body.querySelectorAll(".ios-cal-mday[data-day]")).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const parts = btn.getAttribute("data-day").split("-");
+          state.focus = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          state.view = "list";
+          refresh();
+        });
+      });
+    }
+
+    function renderYear() {
+      const year = state.focus.getFullYear();
+      const today = startOfDay(new Date());
+      let html = '<div class="ios-cal-year">';
+      html += '<h1 class="ios-cal-year-title">' + year + "</h1>";
+      html += '<div class="ios-cal-year-grid">';
+      for (let month = 0; month < 12; month++) {
+        const first = new Date(year, month, 1);
+        const startPad = first.getDay();
+        const total = daysInMonth(year, month);
+        html += '<button type="button" class="ios-cal-mini-month" data-month="' + month + '">';
+        html += '<h2 class="' + (month === today.getMonth() && year === today.getFullYear() ? "is-today" : "") + '">'
+          + MONTHS_SHORT[month] + "</h2>";
+        html += '<div class="ios-cal-mini-weekdays">';
+        WEEKDAYS_SHORT.forEach(function (d) { html += "<span>" + d + "</span>"; });
+        html += '</div><div class="ios-cal-mini-grid">';
+        for (let i = 0; i < startPad; i++) html += "<span></span>";
+        for (let day = 1; day <= total; day++) {
+          const d = new Date(year, month, day);
+          const cls = sameDay(d, today) ? " is-today" : "";
+          html += '<span class="' + cls.trim() + '">' + day + "</span>";
+        }
+        html += "</div></button>";
+      }
+      html += "</div></div>";
+      body.innerHTML = html;
+
+      Array.from(body.querySelectorAll(".ios-cal-mini-month")).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const month = Number(btn.getAttribute("data-month"));
+          state.focus = new Date(year, month, 1);
+          state.view = "month";
+          refresh();
+        });
+      });
+    }
+
+    function render() {
+      updateChrome();
+      if (state.view === "list") renderList();
+      else if (state.view === "month") renderMonth();
+      else renderYear();
+    }
+
+    async function refresh() {
+      updateChrome();
+      body.innerHTML = '<div class="ios-cal-empty">Loading…</div>';
+      await loadEvents();
+      render();
+    }
+
+    navBack.addEventListener("click", function () {
+      if (state.view === "list") {
+        state.view = "month";
+        refresh();
+      } else if (state.view === "month") {
+        state.view = "year";
+        refresh();
+      } else {
+        window.location.href = "/";
+      }
+    });
+
+    btnList.addEventListener("click", function () {
+      state.view = "list";
+      refresh();
+    });
+
+    btnToday.addEventListener("click", function () {
+      state.focus = startOfDay(new Date());
+      state.view = "list";
+      refresh();
+    });
+
+    btnSearch.addEventListener("click", function () {
+      searchBar.hidden = false;
+      searchInput.focus();
+    });
+
+    searchCancel.addEventListener("click", function () {
+      searchBar.hidden = true;
+      searchInput.value = "";
+      state.query = "";
+      render();
+    });
+
+    searchInput.addEventListener("input", function () {
+      state.query = searchInput.value;
+      if (state.view !== "list") {
+        state.view = "list";
+        refresh();
+      } else {
+        render();
+      }
+    });
+
+    // Swipe between months on month view via buttons already; year nav via back.
+    refresh();
+  })();
+  </script>
+</body>
+</html>

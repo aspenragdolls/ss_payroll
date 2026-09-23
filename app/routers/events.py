@@ -15,6 +15,7 @@ from app.services.calendar_service import (
     CalendarWriteError,
     create_event_for_user,
     delete_event_for_user,
+    fetch_events_for_user,
     get_active_connection,
     get_event_for_user,
     update_event_for_user,
@@ -160,6 +161,68 @@ def _template_context(
         "saved": saved,
         "deleted": deleted,
     }
+
+
+@router.get("/events")
+async def calendar_viewer(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conn = get_active_connection(db, user.id)
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "events/calendar.html",
+        {
+            "request": request,
+            "user": user,
+            "connected": conn is not None,
+            "calendar_name": conn.calendar_id if conn else "Work",
+        },
+    )
+
+
+@router.get("/api/events")
+async def list_events_api(
+    start: str = Query(""),
+    end: str = Query(""),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return JSONResponse({"error": "start and end must be YYYY-MM-DD"}, status_code=400)
+    if end_date < start_date:
+        return JSONResponse({"error": "end must be on or after start"}, status_code=400)
+    # Cap range to keep CalDAV queries bounded
+    if (end_date - start_date).days > 400:
+        return JSONResponse({"error": "range too large"}, status_code=400)
+
+    conn = get_active_connection(db, user.id)
+    if not conn:
+        return JSONResponse({"events": [], "connected": False})
+
+    try:
+        events = await fetch_events_for_user(db, user.id, start_date, end_date)
+    except CalendarFetchError as exc:
+        return JSONResponse({"error": str(exc), "events": [], "connected": True}, status_code=502)
+
+    payload = []
+    for event in events:
+        start_local = event.start.astimezone(_LOCAL_TZ) if event.start.tzinfo else event.start.replace(tzinfo=_LOCAL_TZ)
+        end_local = event.end.astimezone(_LOCAL_TZ) if event.end.tzinfo else event.end.replace(tzinfo=_LOCAL_TZ)
+        payload.append(
+            {
+                "id": event.event_id,
+                "title": event.title,
+                "location": event.location or "",
+                "start": start_local.isoformat(),
+                "end": end_local.isoformat(),
+            }
+        )
+    return JSONResponse({"events": payload, "connected": True})
 
 
 @router.get("/events/new")
@@ -435,7 +498,7 @@ async def update_event(
     except (CalendarWriteError, CalendarFetchError) as exc:
         return fail(str(exc))
 
-    return RedirectResponse(f"/events/{uid}/edit?saved=1", status_code=303)
+    return RedirectResponse("/events?saved=1", status_code=303)
 
 
 @router.post("/events/{uid}/delete")
@@ -447,7 +510,7 @@ async def delete_event(
 ):
     conn = get_active_connection(db, user.id)
     if not conn:
-        return RedirectResponse("/events/new", status_code=303)
+        return RedirectResponse("/events", status_code=303)
 
     try:
         await delete_event_for_user(db, user.id, uid)
@@ -463,4 +526,4 @@ async def delete_event(
             customer.is_active = True
         db.commit()
 
-    return RedirectResponse("/?deleted=1", status_code=303)
+    return RedirectResponse("/events?deleted=1", status_code=303)

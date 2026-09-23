@@ -6,15 +6,32 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="SS Payroll">
-  <meta name="theme-color" content="#0B5C3B">
+  <meta name="theme-color" content="#000000" id="meta-theme-color">
   <title>{% if uid %}Edit Event{% else %}New Event{% endif %} — ss_payroll</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/static/icons/app-icon-180.png?v={{ static_version }}">
   <link rel="manifest" href="/static/manifest.json?v={{ static_version }}">
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <script>
+  (function () {
+    try {
+      var theme = localStorage.getItem("ss-payroll-ios-theme");
+      if (theme !== "light" && theme !== "dark") theme = "dark";
+      document.documentElement.setAttribute("data-ios-theme-boot", theme);
+    } catch (e) {}
+  })();
+  </script>
   <script src="/static/button-feedback.js?v={{ static_version }}" defer></script>
 </head>
 <body class="ios-event-page">
+  <script>
+  (function () {
+    var theme = document.documentElement.getAttribute("data-ios-theme-boot") || "dark";
+    document.body.setAttribute("data-theme", theme);
+    var meta = document.getElementById("meta-theme-color");
+    if (meta) meta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
+  })();
+  </script>
   <form
     class="ios-event"
     method="post"
@@ -22,7 +39,22 @@
     id="event-form"
   >
     <header class="ios-event-nav">
-      <a class="ios-pill" href="/">{% if uid %}&lt; Events{% else %}Cancel{% endif %}</a>
+      <a class="ios-pill" href="/events">{% if uid %}&lt; Calendar{% else %}Cancel{% endif %}</a>
+      <button
+        type="button"
+        class="ios-pill ios-theme-toggle"
+        id="theme-toggle"
+        aria-label="Switch to light mode"
+        title="Toggle light / dark mode"
+      >
+        <svg class="ios-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <svg class="ios-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"></path>
+        </svg>
+      </button>
       <button type="submit" class="ios-pill ios-pill-primary" {% if not connected %}disabled{% endif %}>
         <span class="btn-icon" aria-hidden="true"></span>
         {% if uid %}Done{% else %}Add{% endif %}
@@ -167,6 +199,33 @@
 
   <script>
   (function () {
+    const themeToggle = document.getElementById("theme-toggle");
+    const themeMeta = document.getElementById("meta-theme-color");
+
+    function applyTheme(theme) {
+      document.body.setAttribute("data-theme", theme);
+      if (themeMeta) {
+        themeMeta.setAttribute("content", theme === "light" ? "#f2f2f7" : "#000000");
+      }
+      if (themeToggle) {
+        themeToggle.setAttribute(
+          "aria-label",
+          theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+        );
+      }
+      try {
+        localStorage.setItem("ss-payroll-ios-theme", theme);
+      } catch (e) {}
+    }
+
+    if (themeToggle) {
+      applyTheme(document.body.getAttribute("data-theme") || "dark");
+      themeToggle.addEventListener("click", function () {
+        const next = document.body.getAttribute("data-theme") === "light" ? "dark" : "light";
+        applyTheme(next);
+      });
+    }
+
     const nameInput = document.getElementById("customer_name");
     const customerId = document.getElementById("customer_id");
     const addressInput = document.getElementById("address");
@@ -184,9 +243,33 @@
     const endTime = document.getElementById("end_time");
     const startsAt = document.getElementById("starts_at");
     const endsAt = document.getElementById("ends_at");
+    const freeNote = document.getElementById("free_note");
+    const eventForm = document.getElementById("event-form");
+    const isEdit = Boolean(eventForm && /\/events\/.+\/edit/.test(eventForm.getAttribute("action") || ""));
+    let baseline = null;
     let timer = null;
     let suppressSuggest = false;
     let endManual = false;
+
+    function snapshotForm() {
+      return {
+        customer_id: (customerId.value || "").trim(),
+        customer_name: (nameInput.value || "").trim(),
+        address: (addressInput.value || "").trim(),
+        phone: (phoneInput.value || "").trim(),
+        price: (priceInput.value || "").trim(),
+        classification: classification.value || "",
+        service_scope: scopeSelect.value || "",
+        free_note: (freeNote.value || "").trim(),
+        starts_at: startsAt.value || "",
+        ends_at: endsAt.value || "",
+      };
+    }
+
+    function isDirty() {
+      if (!baseline) return true;
+      return JSON.stringify(snapshotForm()) !== JSON.stringify(baseline);
+    }
 
     function pad(n) {
       return String(n).padStart(2, "0");
@@ -427,13 +510,18 @@
     document.addEventListener("click", function (ev) {
       if (!suggestBox.contains(ev.target) && ev.target !== nameInput) hideSuggest();
     });
-    document.getElementById("event-form").addEventListener("submit", function () {
+    document.getElementById("event-form").addEventListener("submit", function (ev) {
       syncHiddenAndDisplay();
+      if (isEdit && !isDirty()) {
+        ev.preventDefault();
+        window.location.href = "/events";
+      }
     });
 
     initWhenFromHidden();
     toggleScope();
     updatePreview();
+    baseline = snapshotForm();
   })();
   </script>
 </body>

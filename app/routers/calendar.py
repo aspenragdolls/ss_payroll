@@ -80,6 +80,9 @@ async def calendar_connect(
         conn.access_token_encrypted = encrypt_credential(app_password)
 
     db.commit()
+    from app.services.calendar_sync_service import schedule_calendar_sync
+
+    schedule_calendar_sync(user.id, force=True)
     return RedirectResponse(
         "/settings/calendar?saved=1&saved_form=connect",
         status_code=status.HTTP_303_SEE_OTHER,

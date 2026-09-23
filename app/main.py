@@ -1,15 +1,15 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
-from app.db import SessionLocal, get_db
+from app.db import get_db
 from app.domain.payroll_stages import PAYROLL_STEP_LABELS, get_stage_url
 from app.services.payroll_service import get_batch_stage, list_in_progress_batches
 from app.template_utils import job_label
@@ -17,49 +17,25 @@ from app.template_utils import job_label
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _FAVICON_PATH = _STATIC_DIR / "favicon.ico"
 
-_SYNC_SKIP_PREFIXES = (
-    "/static",
-    "/favicon.ico",
-    "/api/",
-    "/auth/",
-)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
 
-class CalendarSyncMiddleware(BaseHTTPMiddleware):
-    """Pull Apple Calendar → app on authenticated HTML page loads."""
+    from app.services.calendar_sync_service import run_periodic_calendar_sync
 
-    async def dispatch(self, request: Request, call_next):
-        if request.method == "GET" and self._should_sync(request):
-            user_id = request.session.get("user_id")
-            if user_id:
-                db = SessionLocal()
-                try:
-                    from app.services.calendar_sync_service import sync_calendar_to_app
-
-                    await sync_calendar_to_app(db, int(user_id))
-                except Exception:
-                    # Never block navigation on sync failure.
-                    pass
-                finally:
-                    db.close()
-        return await call_next(request)
-
-    @staticmethod
-    def _should_sync(request: Request) -> bool:
-        path = request.url.path or "/"
-        if any(path.startswith(prefix) for prefix in _SYNC_SKIP_PREFIXES):
-            return False
-        accept = (request.headers.get("accept") or "").lower()
-        if accept and "text/html" not in accept and "*/*" not in accept:
-            return False
-        return True
+    stop = asyncio.Event()
+    sync_task = asyncio.create_task(run_periodic_calendar_sync(stop))
+    try:
+        yield
+    finally:
+        stop.set()
+        await sync_task
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.1.5")
-    # Calendar sync first so SessionMiddleware wraps it and session is available.
-    app.add_middleware(CalendarSyncMiddleware)
+    app = FastAPI(title="ss_payroll", version="0.1.7", lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -84,6 +60,10 @@ def create_app() -> FastAPI:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         return FileResponse(_FAVICON_PATH, media_type="image/x-icon")
+
+    @app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
+    async def health():
+        return Response(status_code=200)
 
     @app.get("/")
     async def root(request: Request, db: Session = Depends(get_db)):
