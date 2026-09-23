@@ -55,6 +55,17 @@ def create_app() -> FastAPI:
     templates.env.globals["static_version"] = app.version
     app.state.templates = templates
 
+    # Assets are cache-busted via ?v={{ static_version }}; allow long-lived browser cache.
+    @app.middleware("http")
+    async def cache_static_assets(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/static/") or path == "/favicon.ico":
+            response.headers.setdefault(
+                "Cache-Control", "public, max-age=31536000, immutable"
+            )
+        return response
+
     from app.routers import (
         auth,
         calendar,
@@ -97,14 +108,16 @@ def create_app() -> FastAPI:
             tab = "stats"
 
         drafts = list_in_progress_batches(db, user["id"])
-        draft_sessions = [
-            {
-                "batch": batch,
-                "stage_label": PAYROLL_STEP_LABELS.get(get_batch_stage(db, batch), "Jobs"),
-                "resume_url": get_stage_url(batch.id, get_batch_stage(db, batch)),
-            }
-            for batch in drafts[:3]
-        ]
+        draft_sessions = []
+        for batch in drafts[:3]:
+            stage = get_batch_stage(db, batch)
+            draft_sessions.append(
+                {
+                    "batch": batch,
+                    "stage_label": PAYROLL_STEP_LABELS.get(stage, "Jobs"),
+                    "resume_url": get_stage_url(batch.id, stage),
+                }
+            )
         deleted = request.query_params.get("deleted") == "1"
 
         stats = None
