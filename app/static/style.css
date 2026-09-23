@@ -1,5 +1,70 @@
 * { box-sizing: border-box; }
 
+/* Cross-document / soft-nav polish (progressive enhancement) */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .18s;
+  animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+}
+
+#app-shell {
+  view-transition-name: app-shell;
+}
+
+#nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2000;
+  height: 2.5px;
+  width: 0;
+  pointer-events: none;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(90deg, var(--btn) 0%, #60a5fa 100%);
+  box-shadow: 0 0 8px rgba(37, 99, 235, .35);
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+#nav-progress.is-active {
+  opacity: 1;
+}
+#nav-progress.is-done {
+  transition: width .16s ease, opacity .2s ease .05s;
+}
+#nav-progress.is-hidden {
+  opacity: 0;
+}
+
+html.is-navigating {
+  cursor: progress;
+}
+html.is-navigating #page-content {
+  opacity: .78;
+  transition: opacity .14s ease;
+}
+#page-content {
+  transition: opacity .14s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+  #page-content,
+  html.is-navigating #page-content,
+  #nav-progress {
+    transition: none !important;
+  }
+}
+
 :root,
 [data-theme="light"] {
   --bg: #f4f6f8;
@@ -129,8 +194,16 @@ header {
 }
 .nav-link:hover,
 .nav-trigger:hover,
-.nav-item.is-open > .nav-trigger {
+.nav-item.is-open > .nav-trigger,
+.site-nav a.is-current {
   background: rgba(255, 255, 255, .12);
+}
+.site-nav a.is-current {
+  font-weight: 600;
+}
+.nav-dropdown a.is-current {
+  background: var(--surface);
+  font-weight: 600;
 }
 .nav-link:focus-visible,
 .nav-trigger:focus-visible {

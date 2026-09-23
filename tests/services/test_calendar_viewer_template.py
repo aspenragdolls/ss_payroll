@@ -36,7 +36,13 @@ def test_base_nav_links_to_apple_calendar():
         static_version="test",
         user={"business_name": "Test Co", "id": 1},
     )
-    assert 'href="/events">Apple Calendar</a>' in html
+    assert 'href="/events"' in html
+    assert "Apple Calendar" in html
+    assert 'hx-boost="false"' in html
+    assert 'id="app-shell"' in html
+    assert 'hx-target="#app-shell"' in html
+    assert "/static/nav-perf.js" in html
+    assert "/static/vendor/htmx.min.js" in html
     assert "New Event" not in html
     assert 'id="theme-toggle"' in html
     assert "ss-payroll-theme" in html

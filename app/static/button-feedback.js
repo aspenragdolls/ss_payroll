@@ -159,6 +159,13 @@
     history.replaceState({}, "", nextUrl);
   }
 
+  function bootFeedback() {
+    enhanceAllButtons();
+    document.querySelectorAll("main form").forEach(bindFormResetOnChange);
+    applySavedFromUrl();
+    applySavedJobButtons(getSavedJobsFromPage());
+  }
+
   document.addEventListener("submit", function (event) {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
@@ -168,10 +175,6 @@
     setButtonLoading(btn);
   });
 
-  document.addEventListener("DOMContentLoaded", function () {
-    enhanceAllButtons();
-    document.querySelectorAll("main form").forEach(bindFormResetOnChange);
-    applySavedFromUrl();
-    applySavedJobButtons(getSavedJobsFromPage());
-  });
+  document.addEventListener("DOMContentLoaded", bootFeedback);
+  document.body.addEventListener("htmx:afterSettle", bootFeedback);
 })();

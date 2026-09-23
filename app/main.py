@@ -42,13 +42,26 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="ss_payroll", version="0.2.1", lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
         session_cookie=settings.session_cookie_name,
         max_age=settings.session_max_age,
     )
+
+    @app.middleware("http")
+    async def add_static_cache_headers(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/static/") or path == "/favicon.ico":
+            # Fingerprinted via ?v=app.version — safe to cache long-term.
+            response.headers.setdefault(
+                "Cache-Control",
+                "public, max-age=31536000, immutable",
+            )
+        return response
+
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
     templates = Jinja2Templates(directory="app/templates")
     templates.env.filters["job_label"] = job_label
