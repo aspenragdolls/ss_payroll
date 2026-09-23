@@ -110,15 +110,17 @@ async def begin_payroll_page(
     db: Session = Depends(get_db),
 ):
     drafts = list_in_progress_batches(db, user.id)
-    draft_sessions = [
-        {
-            "batch": batch,
-            "stage": get_batch_stage(db, batch),
-            "stage_label": PAYROLL_STEP_LABELS.get(get_batch_stage(db, batch), "Jobs"),
-            "resume_url": get_stage_url(batch.id, get_batch_stage(db, batch)),
-        }
-        for batch in drafts
-    ]
+    draft_sessions = []
+    for batch in drafts:
+        stage = get_batch_stage(db, batch)
+        draft_sessions.append(
+            {
+                "batch": batch,
+                "stage": stage,
+                "stage_label": PAYROLL_STEP_LABELS.get(stage, "Jobs"),
+                "resume_url": get_stage_url(batch.id, stage),
+            }
+        )
     return request.app.state.templates.TemplateResponse(
         request,
         "payroll/begin.html",
