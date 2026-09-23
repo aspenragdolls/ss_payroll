@@ -348,6 +348,34 @@ async def get_apple_calendar_event(
     return None
 
 
+async def delete_apple_calendar_event(
+    apple_id: str,
+    app_password: str,
+    calendar_name: str,
+    uid: str,
+) -> bool:
+    """Delete a VEVENT by UID. Returns True if deleted (or already gone)."""
+    deleted = False
+    async with _auth_client(apple_id, app_password) as client:
+        try:
+            calendar_urls = await _resolve_calendar_urls(client, calendar_name)
+            for calendar_url in calendar_urls:
+                if not calendar_url.endswith("/"):
+                    calendar_url += "/"
+                event_url = urljoin(calendar_url, f"{uid}.ics")
+                response = await client.delete(event_url)
+                if response.status_code in (200, 204, 404):
+                    deleted = True
+                    continue
+                response.raise_for_status()
+                deleted = True
+        except CalendarFetchError:
+            raise
+        except httpx.HTTPError as exc:
+            raise _map_http_error(exc, write=True) from exc
+    return deleted
+
+
 def _is_calendar_collection(response: ET.Element) -> bool:
     resourcetype = response.find(f".//{_ns_tag('D', 'resourcetype')}")
     if resourcetype is None:

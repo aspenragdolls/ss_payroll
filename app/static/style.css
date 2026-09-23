@@ -231,6 +231,24 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   background: #0f2a1c;
   color: #30d158;
 }
+.ios-delete-wrap {
+  margin: 1.25rem 0 2rem;
+  padding: 0 0.25rem;
+}
+.ios-delete-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: #1c1c1e;
+  color: #ff453a;
+  font-size: 1.05rem;
+  font-weight: 500;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+}
+.ios-delete-btn:active {
+  opacity: 0.75;
+}
 .ios-group {
   background: #1c1c1e;
   border-radius: 12px;
@@ -262,30 +280,66 @@ nav.steps .step-disabled { padding: .4rem .8rem; background: #f1f5f9; border-rad
   padding: 0.35rem 0 0.55rem;
   outline: none;
 }
-.ios-datetime-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
+.ios-when {
+  margin-top: 0.15rem;
 }
-.ios-field {
+.ios-when-display {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  align-items: flex-start;
+  gap: 0.1rem;
+  margin-bottom: 0.65rem;
+}
+.ios-when-date,
+.ios-when-time {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.25;
+}
+.ios-when-date {
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+.ios-when-time {
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+.ios-when-pickers {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 0.45rem;
+}
+.ios-when-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   margin: 0;
   font-weight: 500;
   color: #8e8e93;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
 }
-.ios-field input {
+.ios-when-picker input {
   width: 100%;
   max-width: none;
-  background: #2c2c2e;
+  background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   color: #fff;
-  padding: 0.55rem 0.6rem;
+  padding: 0.15rem 0;
   font-size: 0.95rem;
   color-scheme: dark;
+}
+.ios-when-hint {
+  margin: 0.45rem 0 0;
+  color: #8e8e93;
+  font-size: 0.75rem;
 }
 .ios-title-preview {
   margin: 0.75rem 0 0;

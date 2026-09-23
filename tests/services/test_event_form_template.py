@@ -43,6 +43,10 @@ def test_event_form_template_is_iphone_oriented():
     assert "viewport" in html
     assert "apple-touch-icon" in html
     assert "/favicon.ico" in html
+    assert "ios-when-date" in html
+    assert "ios-when-time" in html
+    assert 'name="starts_at"' in html
+    assert 'name="ends_at"' in html
     assert "Parks Mangelson ($322)" in html
     # Notes-area fields appear after identity / phone groups
     notes_idx = html.index("ios-notes-stack")

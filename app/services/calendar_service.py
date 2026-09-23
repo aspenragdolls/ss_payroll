@@ -8,6 +8,7 @@ from app.services.apple_calendar import (
     CalendarFetchError,
     CalendarWriteError,
     create_apple_calendar_event,
+    delete_apple_calendar_event,
     fetch_apple_calendar_events,
     get_apple_calendar_event,
     update_apple_calendar_event,
@@ -121,10 +122,19 @@ async def get_event_for_user(db: Session, user_id: int, uid: str) -> RawCalendar
     return await get_apple_calendar_event(apple_id, password, calendar_name, uid)
 
 
+async def delete_event_for_user(db: Session, user_id: int, uid: str) -> bool:
+    conn = get_active_connection(db, user_id)
+    if not conn:
+        raise CalendarWriteError("Apple Calendar is not connected. Connect it in Settings first.")
+    apple_id, password, calendar_name = _connection_credentials(conn)
+    return await delete_apple_calendar_event(apple_id, password, calendar_name, uid)
+
+
 __all__ = [
     "CalendarFetchError",
     "CalendarWriteError",
     "create_event_for_user",
+    "delete_event_for_user",
     "fetch_events_for_user",
     "get_active_connection",
     "get_event_for_user",

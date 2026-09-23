@@ -14,12 +14,14 @@ from app.services.calendar_service import (
     CalendarFetchError,
     CalendarWriteError,
     create_event_for_user,
+    delete_event_for_user,
     get_active_connection,
     get_event_for_user,
     update_event_for_user,
 )
 from app.services.customer_service import (
     get_customer,
+    get_customer_by_calendar_uid,
     suggest_customers,
     upsert_customer_from_event,
 )
@@ -28,10 +30,9 @@ from app.services.event_format import (
     SERVICE_SCOPES,
     build_event_description,
     build_event_title,
-    service_description_line,
 )
+from app.services.event_parse import parse_event_for_app
 from app.services.openrouter_job_parser import safe_decimal
-from app.services.schemas import RawCalendarEvent
 
 router = APIRouter(tags=["events"])
 
@@ -54,38 +55,24 @@ def _parse_local_datetime(raw: str) -> datetime | None:
     return dt.astimezone(_LOCAL_TZ)
 
 
+def _resolve_event_times(starts_at: str, ends_at: str) -> tuple[datetime | None, datetime | None, str | None]:
+    """Parse start/end; if end blank or invalid, default to start + 1 hour same day."""
+    start = _parse_local_datetime(starts_at)
+    if not start:
+        return None, None, "Start date and time are required."
+    end = _parse_local_datetime(ends_at)
+    if not end:
+        end = start + timedelta(hours=1)
+    if end <= start:
+        end = start + timedelta(hours=1)
+    return start, end, None
+
+
 def _to_datetime_local(value: datetime | None) -> str:
     if not value:
         return ""
     local = value.astimezone(_LOCAL_TZ) if value.tzinfo else value.replace(tzinfo=_LOCAL_TZ)
     return local.strftime("%Y-%m-%dT%H:%M")
-
-
-def _guess_classification_from_event(event: RawCalendarEvent) -> tuple[str, str | None]:
-    text = f"{event.description or ''}\n{event.title or ''}".lower()
-    if "estimate" in text or "quote" in text:
-        return "estimate", None
-    if "gutter" in text:
-        return "gutters", None
-    scope_map = [
-        ("inside and outside", "inside_and_outside"),
-        ("outside only", "outside_only"),
-        ("inside only", "inside_only"),
-        ("partial", "partial"),
-    ]
-    for needle, key in scope_map:
-        if needle in text:
-            return "windows", key
-    return "windows", "inside_and_outside"
-
-
-def _parse_title_name_price(title: str) -> tuple[str, str]:
-    import re
-
-    match = re.match(r"^(.*?)\s*\(\s*\$\s*([\d.,]+)\s*\)\s*$", (title or "").strip())
-    if match:
-        return match.group(1).strip(), match.group(2).strip()
-    return (title or "").strip(), ""
 
 
 def _form_defaults() -> dict:
@@ -105,6 +92,22 @@ def _form_defaults() -> dict:
         "starts_at": _to_datetime_local(now),
         "ends_at": _to_datetime_local(end),
         "title_preview": "",
+    }
+
+
+def _values_from_parsed(parsed: dict, customer_id: str = "") -> dict:
+    return {
+        "customer_id": customer_id,
+        "customer_name": parsed["customer_name"],
+        "address": parsed["address"],
+        "phone": parsed["phone"],
+        "price": parsed["price"],
+        "classification": parsed["classification"],
+        "service_scope": parsed["service_scope"],
+        "free_note": parsed["free_note"],
+        "starts_at": _to_datetime_local(parsed["starts_at"]),
+        "ends_at": _to_datetime_local(parsed["ends_at"]),
+        "title_preview": build_event_title(parsed["customer_name"], safe_decimal(parsed["price"])),
     }
 
 
@@ -142,6 +145,7 @@ def _template_context(
     connected: bool,
     error: str | None = None,
     saved: bool = False,
+    deleted: bool = False,
 ) -> dict:
     return {
         "request": request,
@@ -154,6 +158,7 @@ def _template_context(
         "service_scopes": SERVICE_SCOPES,
         "connected": connected,
         "saved": saved,
+        "deleted": deleted,
     }
 
 
@@ -237,12 +242,9 @@ async def create_event(
     if classification == "windows" and service_scope not in {key for key, _ in SERVICE_SCOPES}:
         return fail("Choose a service scope for windows.")
 
-    start = _parse_local_datetime(starts_at)
-    end = _parse_local_datetime(ends_at)
-    if not start or not end:
-        return fail("Start and end times are required.")
-    if end <= start:
-        return fail("End time must be after start time.")
+    start, end, time_error = _resolve_event_times(starts_at, ends_at)
+    if time_error:
+        return fail(time_error)
 
     ticket = safe_decimal(price)
     cid = None
@@ -252,17 +254,6 @@ async def create_event(
             cid = None
 
     try:
-        upsert_customer_from_event(
-            db,
-            user.id,
-            customer_id=cid,
-            name=name,
-            address=address,
-            phone=phone,
-            classification=classification,
-            service_scope=service_scope or None,
-            usual_price=ticket,
-        )
         event = await create_event_for_user(
             db,
             user.id,
@@ -276,6 +267,19 @@ async def create_event(
             location=address.strip(),
             start=start,
             end=end,
+        )
+        upsert_customer_from_event(
+            db,
+            user.id,
+            customer_id=cid,
+            name=name,
+            address=address,
+            phone=phone,
+            classification=classification,
+            service_scope=service_scope or None,
+            usual_price=ticket,
+            calendar_event_uid=event.event_id,
+            next_service_due=start.date(),
         )
     except (CalendarWriteError, CalendarFetchError) as exc:
         return fail(str(exc))
@@ -300,47 +304,20 @@ async def edit_event_form(
         try:
             event = await get_event_for_user(db, user.id, uid)
             if event:
-                name, price = _parse_title_name_price(event.title)
-                classification, scope = _guess_classification_from_event(event)
-                phone = ""
-                free_note = ""
-                desc_lines = (event.description or "").splitlines()
-                if desc_lines:
-                    first = desc_lines[0].strip()
-                    if any(ch.isdigit() for ch in first) and len(first) <= 24:
-                        phone = first
-                        rest = "\n".join(desc_lines[1:]).strip()
-                    else:
-                        rest = (event.description or "").strip()
-                    service_line = service_description_line(classification, scope)
-                    if rest.startswith(service_line):
-                        free_note = rest[len(service_line) :].strip()
-                    elif "\n\n" in rest:
-                        parts = rest.split("\n\n", 1)
-                        free_note = parts[1].strip() if len(parts) > 1 else ""
-                    else:
-                        # Drop the service line if present as a single line
-                        lines = [ln for ln in rest.splitlines() if ln.strip()]
-                        if lines and lines[0].strip().lower() == service_line.lower():
-                            free_note = "\n".join(lines[1:]).strip()
-                        else:
-                            free_note = rest
-                values = {
-                    "customer_id": "",
-                    "customer_name": name,
-                    "address": event.location or "",
-                    "phone": phone,
-                    "price": price,
-                    "classification": classification,
-                    "service_scope": scope or "inside_and_outside",
-                    "free_note": free_note,
-                    "starts_at": _to_datetime_local(event.start),
-                    "ends_at": _to_datetime_local(event.end),
-                    "title_preview": event.title,
-                }
-                matches = suggest_customers(db, user.id, name, limit=1)
-                if matches and matches[0].name.strip().lower() == name.strip().lower():
-                    values["customer_id"] = str(matches[0].id)
+                parsed = parse_event_for_app(event)
+                customer_id = ""
+                linked = get_customer_by_calendar_uid(db, user.id, uid)
+                if linked:
+                    customer_id = str(linked.id)
+                else:
+                    matches = suggest_customers(db, user.id, parsed["customer_name"], limit=1)
+                    if (
+                        matches
+                        and matches[0].name.strip().lower()
+                        == parsed["customer_name"].strip().lower()
+                    ):
+                        customer_id = str(matches[0].id)
+                values = _values_from_parsed(parsed, customer_id=customer_id)
             else:
                 error = "Event not found in Apple Calendar."
         except (CalendarFetchError, CalendarWriteError) as exc:
@@ -349,18 +326,16 @@ async def edit_event_form(
     return request.app.state.templates.TemplateResponse(
         request,
         "events/form.html",
-        {
-            "request": request,
-            "user": user,
-            "values": values,
-            "error": error,
-            "uid": uid,
-            "calendar_name": conn.calendar_id if conn else "Work",
-            "classifications": CLASSIFICATIONS,
-            "service_scopes": SERVICE_SCOPES,
-            "connected": conn is not None,
-            "saved": saved == "1",
-        },
+        _template_context(
+            request,
+            user,
+            values=values,
+            uid=uid,
+            calendar_name=conn.calendar_id if conn else "Work",
+            connected=conn is not None,
+            error=error,
+            saved=saved == "1",
+        ),
     )
 
 
@@ -415,10 +390,9 @@ async def update_event(
     if not name:
         return fail("Customer name is required.")
 
-    start = _parse_local_datetime(starts_at)
-    end = _parse_local_datetime(ends_at)
-    if not start or not end or end <= start:
-        return fail("Valid start and end times are required.")
+    start, end, time_error = _resolve_event_times(starts_at, ends_at)
+    if time_error:
+        return fail(time_error)
 
     if classification == "windows" and service_scope not in {key for key, _ in SERVICE_SCOPES}:
         return fail("Choose a service scope for windows.")
@@ -427,19 +401,12 @@ async def update_event(
     cid = int(customer_id) if customer_id.strip().isdigit() else None
     if cid and not get_customer(db, user.id, cid):
         cid = None
+    if not cid:
+        linked = get_customer_by_calendar_uid(db, user.id, uid)
+        if linked:
+            cid = linked.id
 
     try:
-        upsert_customer_from_event(
-            db,
-            user.id,
-            customer_id=cid,
-            name=name,
-            address=address,
-            phone=phone,
-            classification=classification,
-            service_scope=service_scope or None,
-            usual_price=ticket,
-        )
         await update_event_for_user(
             db,
             user.id,
@@ -452,7 +419,48 @@ async def update_event(
             start=start,
             end=end,
         )
+        upsert_customer_from_event(
+            db,
+            user.id,
+            customer_id=cid,
+            name=name,
+            address=address,
+            phone=phone,
+            classification=classification,
+            service_scope=service_scope or None,
+            usual_price=ticket,
+            calendar_event_uid=uid,
+            next_service_due=start.date(),
+        )
     except (CalendarWriteError, CalendarFetchError) as exc:
         return fail(str(exc))
 
     return RedirectResponse(f"/events/{uid}/edit?saved=1", status_code=303)
+
+
+@router.post("/events/{uid}/delete")
+async def delete_event(
+    request: Request,
+    uid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conn = get_active_connection(db, user.id)
+    if not conn:
+        return RedirectResponse("/events/new", status_code=303)
+
+    try:
+        await delete_event_for_user(db, user.id, uid)
+    except (CalendarWriteError, CalendarFetchError):
+        return RedirectResponse(f"/events/{uid}/edit?error=delete", status_code=303)
+
+    customer = get_customer_by_calendar_uid(db, user.id, uid)
+    if customer:
+        customer.calendar_event_uid = None
+        customer.next_service_due = None
+        if customer.status in {"scheduled", "estimate"}:
+            customer.status = "active"
+            customer.is_active = True
+        db.commit()
+
+    return RedirectResponse("/?deleted=1", status_code=303)

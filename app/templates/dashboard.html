@@ -3,6 +3,12 @@
 {% block content %}
 <h1>Dashboard</h1>
 
+{% if event_deleted %}
+<div class="card">
+  <p>Event deleted from Apple Calendar.</p>
+</div>
+{% endif %}
+
 {% if draft_sessions %}
 <div class="card">
   <h2>In-Progress Payroll</h2>

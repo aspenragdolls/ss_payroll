@@ -61,15 +61,32 @@
         autocomplete="street-address"
         value="{{ values.address }}"
       >
-      <div class="ios-datetime-row">
-        <label class="ios-field">
-          <span>Starts</span>
-          <input type="datetime-local" name="starts_at" id="starts_at" value="{{ values.starts_at }}" required>
-        </label>
-        <label class="ios-field">
-          <span>Ends</span>
-          <input type="datetime-local" name="ends_at" id="ends_at" value="{{ values.ends_at }}" required>
-        </label>
+      <div class="ios-when" id="when-block">
+        <div class="ios-when-display">
+          <button type="button" class="ios-when-date" id="date-display" aria-label="Choose date">
+            Wednesday, Sep 16, 2026
+          </button>
+          <button type="button" class="ios-when-time" id="time-display" aria-label="Choose start time">
+            9 AM – 10 AM
+          </button>
+        </div>
+        <div class="ios-when-pickers">
+          <label class="ios-when-picker">
+            <span>Date</span>
+            <input type="date" id="event_date">
+          </label>
+          <label class="ios-when-picker">
+            <span>Starts</span>
+            <input type="time" id="start_time">
+          </label>
+          <label class="ios-when-picker">
+            <span>Ends</span>
+            <input type="time" id="end_time">
+          </label>
+        </div>
+        <p class="ios-when-hint">Leave Ends blank to use 1 hour after start.</p>
+        <input type="hidden" name="starts_at" id="starts_at" value="{{ values.starts_at }}" required>
+        <input type="hidden" name="ends_at" id="ends_at" value="{{ values.ends_at }}">
       </div>
       <p class="ios-title-preview" id="title-preview">{{ values.title_preview or 'Name ($Price)' }}</p>
     </section>
@@ -142,6 +159,12 @@
     </section>
   </form>
 
+  {% if uid and connected %}
+  <form method="post" action="/events/{{ uid }}/delete" class="ios-delete-wrap" onsubmit="return confirm('Delete this event from Apple Calendar?');">
+    <button type="submit" class="ios-delete-btn">Delete Event</button>
+  </form>
+  {% endif %}
+
   <script>
   (function () {
     const nameInput = document.getElementById("customer_name");
@@ -154,8 +177,156 @@
     const scopeSelect = document.getElementById("service_scope");
     const preview = document.getElementById("title-preview");
     const suggestBox = document.getElementById("suggest-box");
+    const dateDisplay = document.getElementById("date-display");
+    const timeDisplay = document.getElementById("time-display");
+    const eventDate = document.getElementById("event_date");
+    const startTime = document.getElementById("start_time");
+    const endTime = document.getElementById("end_time");
+    const startsAt = document.getElementById("starts_at");
+    const endsAt = document.getElementById("ends_at");
     let timer = null;
     let suppressSuggest = false;
+    let endManual = false;
+
+    function pad(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function parseLocalParts(value) {
+      const m = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (!m) return null;
+      return {
+        date: m[1] + "-" + m[2] + "-" + m[3],
+        time: m[4] + ":" + m[5],
+        year: Number(m[1]),
+        month: Number(m[2]),
+        day: Number(m[3]),
+        hour: Number(m[4]),
+        minute: Number(m[5]),
+      };
+    }
+
+    function toLocalValue(dateStr, timeStr) {
+      if (!dateStr || !timeStr) return "";
+      return dateStr + "T" + timeStr;
+    }
+
+    function addOneHour(dateStr, timeStr) {
+      const parts = parseLocalParts(toLocalValue(dateStr, timeStr));
+      if (!parts) return { date: dateStr, time: timeStr };
+      const dt = new Date(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+      dt.setHours(dt.getHours() + 1);
+      return {
+        date: dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()),
+        time: pad(dt.getHours()) + ":" + pad(dt.getMinutes()),
+      };
+    }
+
+    function formatAppleDate(dateStr) {
+      const parts = String(dateStr || "").split("-");
+      if (parts.length !== 3) return dateStr || "";
+      const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return dt.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+
+    function formatAppleTime(timeStr) {
+      const m = String(timeStr || "").match(/^(\d{2}):(\d{2})/);
+      if (!m) return "";
+      let hour = Number(m[1]);
+      const minute = Number(m[2]);
+      const ampm = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12;
+      if (hour === 0) hour = 12;
+      if (minute === 0) return hour + " " + ampm;
+      return hour + ":" + pad(minute) + " " + ampm;
+    }
+
+    function syncHiddenAndDisplay() {
+      const dateStr = eventDate.value;
+      const start = startTime.value || "09:00";
+      if (!startTime.value) startTime.value = start;
+
+      let endDateStr = dateStr;
+      let end = (endTime.value || "").trim();
+      endManual = Boolean(end);
+
+      if (!end) {
+        const autoEnd = addOneHour(dateStr, start);
+        endDateStr = autoEnd.date;
+        end = autoEnd.time;
+      } else {
+        const sParts = parseLocalParts(toLocalValue(dateStr, start));
+        const eParts = parseLocalParts(toLocalValue(dateStr, end));
+        if (sParts && eParts) {
+          const sd = new Date(sParts.year, sParts.month - 1, sParts.day, sParts.hour, sParts.minute);
+          const ed = new Date(eParts.year, eParts.month - 1, eParts.day, eParts.hour, eParts.minute);
+          if (ed <= sd) {
+            const autoEnd = addOneHour(dateStr, start);
+            endDateStr = autoEnd.date;
+            end = autoEnd.time;
+            endManual = false;
+            endTime.value = "";
+          }
+        }
+      }
+
+      startsAt.value = toLocalValue(dateStr, start);
+      endsAt.value = toLocalValue(endDateStr, end);
+      dateDisplay.textContent = formatAppleDate(dateStr);
+      timeDisplay.textContent = formatAppleTime(start) + " – " + formatAppleTime(end);
+    }
+
+    function initWhenFromHidden() {
+      const startParts = parseLocalParts(startsAt.value);
+      const endParts = parseLocalParts(endsAt.value);
+      if (startParts) {
+        eventDate.value = startParts.date;
+        startTime.value = startParts.time;
+      } else {
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        if (now.getHours() < 8) now.setHours(9);
+        eventDate.value = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+        startTime.value = pad(now.getHours()) + ":00";
+      }
+      if (endParts && startParts) {
+        const expected = addOneHour(startParts.date, startParts.time);
+        const matchesDefault =
+          endParts.date === expected.date && endParts.time === expected.time;
+        if (!matchesDefault) {
+          endManual = true;
+          endTime.value = endParts.time;
+        } else {
+          endTime.value = "";
+        }
+      }
+      syncHiddenAndDisplay();
+    }
+
+    function openPicker(el) {
+      if (typeof el.showPicker === "function") {
+        try { el.showPicker(); return; } catch (e) {}
+      }
+      el.focus();
+      el.click();
+    }
+
+    dateDisplay.addEventListener("click", function () { openPicker(eventDate); });
+    timeDisplay.addEventListener("click", function () { openPicker(startTime); });
+    eventDate.addEventListener("change", syncHiddenAndDisplay);
+    startTime.addEventListener("change", function () {
+      if (!endTime.value) endManual = false;
+      syncHiddenAndDisplay();
+    });
+    endTime.addEventListener("change", syncHiddenAndDisplay);
+    endTime.addEventListener("input", function () {
+      endManual = Boolean(endTime.value);
+    });
 
     function formatPrice(raw) {
       const cleaned = String(raw || "").replace(/[^0-9.]/g, "");
@@ -256,7 +427,11 @@
     document.addEventListener("click", function (ev) {
       if (!suggestBox.contains(ev.target) && ev.target !== nameInput) hideSuggest();
     });
+    document.getElementById("event-form").addEventListener("submit", function () {
+      syncHiddenAndDisplay();
+    });
 
+    initWhenFromHidden();
     toggleScope();
     updatePreview();
   })();

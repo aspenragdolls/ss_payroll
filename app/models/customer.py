@@ -31,6 +31,7 @@ class Customer(Base):
     services: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     usual_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     service_scope: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    calendar_event_uid: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     next_service_due: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     allow_email: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_sms: Mapped[bool] = mapped_column(Boolean, default=True)

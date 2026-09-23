@@ -5,10 +5,11 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.domain.payroll_stages import PAYROLL_STEP_LABELS, get_stage_url
 from app.services.payroll_service import get_batch_stage, list_in_progress_batches
 from app.template_utils import job_label
@@ -16,10 +17,49 @@ from app.template_utils import job_label
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _FAVICON_PATH = _STATIC_DIR / "favicon.ico"
 
+_SYNC_SKIP_PREFIXES = (
+    "/static",
+    "/favicon.ico",
+    "/api/",
+    "/auth/",
+)
+
+
+class CalendarSyncMiddleware(BaseHTTPMiddleware):
+    """Pull Apple Calendar → app on authenticated HTML page loads."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "GET" and self._should_sync(request):
+            user_id = request.session.get("user_id")
+            if user_id:
+                db = SessionLocal()
+                try:
+                    from app.services.calendar_sync_service import sync_calendar_to_app
+
+                    await sync_calendar_to_app(db, int(user_id))
+                except Exception:
+                    # Never block navigation on sync failure.
+                    pass
+                finally:
+                    db.close()
+        return await call_next(request)
+
+    @staticmethod
+    def _should_sync(request: Request) -> bool:
+        path = request.url.path or "/"
+        if any(path.startswith(prefix) for prefix in _SYNC_SKIP_PREFIXES):
+            return False
+        accept = (request.headers.get("accept") or "").lower()
+        if accept and "text/html" not in accept and "*/*" not in accept:
+            return False
+        return True
+
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ss_payroll", version="0.1.3")
+    app = FastAPI(title="ss_payroll", version="0.1.5")
+    # Calendar sync first so SessionMiddleware wraps it and session is available.
+    app.add_middleware(CalendarSyncMiddleware)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -59,6 +99,7 @@ def create_app() -> FastAPI:
             }
             for batch in drafts[:3]
         ]
+        deleted = request.query_params.get("deleted") == "1"
         return templates.TemplateResponse(
             request,
             "dashboard.html",
@@ -66,6 +107,7 @@ def create_app() -> FastAPI:
                 "request": request,
                 "user": user,
                 "draft_sessions": draft_sessions,
+                "event_deleted": deleted,
             },
         )
 

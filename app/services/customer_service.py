@@ -378,6 +378,31 @@ def get_customer(db: Session, user_id: int, customer_id: int) -> Customer | None
     )
 
 
+def get_customer_by_calendar_uid(
+    db: Session, user_id: int, calendar_event_uid: str
+) -> Customer | None:
+    uid = (calendar_event_uid or "").strip()
+    if not uid:
+        return None
+    return db.scalar(
+        select(Customer).where(
+            Customer.user_id == user_id,
+            Customer.calendar_event_uid == uid,
+        )
+    )
+
+
+def list_customers_with_calendar_uid(db: Session, user_id: int) -> list[Customer]:
+    return list(
+        db.scalars(
+            select(Customer).where(
+                Customer.user_id == user_id,
+                Customer.calendar_event_uid.is_not(None),
+            )
+        )
+    )
+
+
 def suggest_customers(db: Session, user_id: int, q: str, *, limit: int = 12) -> list[Customer]:
     query = (q or "").strip()
     if not query:
@@ -412,6 +437,8 @@ def upsert_customer_from_event(
     classification: str,
     service_scope: str | None,
     usual_price: Decimal | None,
+    calendar_event_uid: str | None = None,
+    next_service_due: date | None = None,
 ) -> Customer:
     from app.services.event_format import (
         infer_customer_status,
@@ -422,6 +449,15 @@ def upsert_customer_from_event(
     status = infer_customer_status(classification)
     scope = scope_for_classification(classification, service_scope)
     customer = get_customer(db, user_id, customer_id) if customer_id else None
+    if not customer and calendar_event_uid:
+        customer = get_customer_by_calendar_uid(db, user_id, calendar_event_uid)
+
+    extra: dict = {}
+    if calendar_event_uid is not None:
+        extra["calendar_event_uid"] = calendar_event_uid.strip() or None
+    if next_service_due is not None:
+        extra["next_service_due"] = next_service_due
+
     if customer:
         merged = merge_services(customer.services, classification)
         return update_customer(
@@ -434,6 +470,7 @@ def upsert_customer_from_event(
             services=merged,
             service_scope=scope,
             usual_price=usual_price if usual_price is not None else customer.usual_price,
+            **extra,
         )
     return create_customer(
         db,
@@ -445,6 +482,8 @@ def upsert_customer_from_event(
         services=merge_services(None, classification),
         service_scope=scope,
         usual_price=usual_price,
+        calendar_event_uid=extra.get("calendar_event_uid"),
+        next_service_due=extra.get("next_service_due"),
     )
 
 
@@ -468,6 +507,7 @@ def create_customer(
     usual_price: Decimal | None = None,
     service_scope: str | None = None,
     next_service_due: date | None = None,
+    calendar_event_uid: str | None = None,
     allow_email: bool = True,
     allow_sms: bool = True,
     allow_mail: bool = True,
@@ -497,6 +537,7 @@ def create_customer(
         usual_price=usual_price,
         service_scope=(service_scope or "").strip() or None,
         next_service_due=next_service_due,
+        calendar_event_uid=(calendar_event_uid or "").strip() or None,
         allow_email=allow_email,
         allow_sms=allow_sms,
         allow_mail=allow_mail,
