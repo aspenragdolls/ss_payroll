@@ -290,6 +290,83 @@ def list_bookings(
     return list(db.scalars(stmt))
 
 
+def get_booking_by_calendar_uid(
+    db: Session, user_id: int, calendar_event_uid: str
+) -> Booking | None:
+    uid = (calendar_event_uid or "").strip()
+    if not uid:
+        return None
+    return db.scalar(
+        select(Booking)
+        .where(
+            Booking.user_id == user_id,
+            Booking.calendar_event_uid == uid,
+            Booking.status != "cancelled",
+        )
+        .order_by(Booking.id.desc())
+    )
+
+
+def upsert_booking_for_calendar_event(
+    db: Session,
+    user_id: int,
+    *,
+    calendar_event_uid: str,
+    crew_id: int,
+    customer_id: int | None,
+    price: Decimal,
+    starts_at: datetime,
+    ends_at: datetime,
+    duration_minutes: int,
+    duration_source: str,
+    notes: str | None = None,
+) -> Booking:
+    """Attach or update a local booking for an existing Apple Calendar event."""
+    start_naive = starts_at.replace(tzinfo=None) if starts_at.tzinfo else starts_at
+    end_naive = ends_at.replace(tzinfo=None) if ends_at.tzinfo else ends_at
+    booking = get_booking_by_calendar_uid(db, user_id, calendar_event_uid)
+    if booking:
+        booking.crew_id = crew_id
+        booking.customer_id = customer_id
+        booking.price = price
+        booking.starts_at = start_naive
+        booking.ends_at = end_naive
+        booking.duration_minutes = duration_minutes
+        booking.duration_source = duration_source
+        booking.notes = notes
+        booking.status = "confirmed"
+    else:
+        booking = Booking(
+            user_id=user_id,
+            crew_id=crew_id,
+            customer_id=customer_id,
+            price=price,
+            duration_minutes=duration_minutes,
+            starts_at=start_naive,
+            ends_at=end_naive,
+            calendar_event_uid=calendar_event_uid,
+            status="confirmed",
+            duration_source=duration_source,
+            notes=notes,
+        )
+        db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+def cancel_booking_for_calendar_event(
+    db: Session, user_id: int, calendar_event_uid: str
+) -> Booking | None:
+    booking = get_booking_by_calendar_uid(db, user_id, calendar_event_uid)
+    if not booking:
+        return None
+    booking.status = "cancelled"
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
 def cancel_booking(db: Session, user_id: int, booking_id: int) -> Booking | None:
     booking = db.scalar(
         select(Booking).where(Booking.user_id == user_id, Booking.id == booking_id)

@@ -33,11 +33,16 @@ from app.services.job_timer_service import (
     job_timer_view,
     start_job_for_event,
 )
-from app.services.crew_service import list_crews
-from app.services.booking_service import BookingError, create_booking
+from app.services.crew_service import get_crew, list_crews
+from app.services.booking_service import (
+    BookingError,
+    cancel_booking_for_calendar_event,
+    create_booking,
+    get_booking_by_calendar_uid,
+    resolve_duration,
+    upsert_booking_for_calendar_event,
+)
 from app.services.duration_service import DurationError
-from app.services.crew_service import get_crew
-from app.services.booking_service import resolve_duration
 from app.services.event_format import (
     CLASSIFICATIONS,
     SERVICE_SCOPES,
@@ -109,7 +114,7 @@ def _form_defaults() -> dict:
     }
 
 
-def _values_from_parsed(parsed: dict, customer_id: str = "") -> dict:
+def _values_from_parsed(parsed: dict, customer_id: str = "", crew_id: str = "") -> dict:
     return {
         "customer_id": customer_id,
         "customer_name": parsed["customer_name"],
@@ -122,7 +127,7 @@ def _values_from_parsed(parsed: dict, customer_id: str = "") -> dict:
         "starts_at": _to_datetime_local(parsed["starts_at"]),
         "ends_at": _to_datetime_local(parsed["ends_at"]),
         "title_preview": build_event_title(parsed["customer_name"], safe_decimal(parsed["price"])),
-        "crew_id": "",
+        "crew_id": crew_id,
     }
 
 
@@ -431,6 +436,7 @@ async def edit_event_form(
     values = _form_defaults()
     error = None if conn else "Apple Calendar is not connected."
     linked = get_customer_by_calendar_uid(db, user.id, uid) if conn else None
+    booking = get_booking_by_calendar_uid(db, user.id, uid) if conn else None
     if conn:
         try:
             event = await get_event_for_user(db, user.id, uid)
@@ -445,7 +451,11 @@ async def edit_event_form(
                         == parsed["customer_name"].strip().lower()
                     ):
                         customer_id = str(matches[0].id)
-                values = _values_from_parsed(parsed, customer_id=customer_id)
+                values = _values_from_parsed(
+                    parsed,
+                    customer_id=customer_id,
+                    crew_id=str(booking.crew_id) if booking else "",
+                )
             else:
                 error = "Event not found in Apple Calendar."
         except (CalendarFetchError, CalendarWriteError) as exc:
@@ -499,8 +509,10 @@ async def update_event(
     free_note: str = Form(""),
     starts_at: str = Form(""),
     ends_at: str = Form(""),
+    crew_id: str = Form(""),
 ):
     conn = get_active_connection(db, user.id)
+    crews = list_crews(db, user.id, active_only=True)
     values = {
         "customer_id": customer_id,
         "customer_name": customer_name,
@@ -513,6 +525,7 @@ async def update_event(
         "starts_at": starts_at,
         "ends_at": ends_at,
         "title_preview": build_event_title(customer_name, safe_decimal(price)),
+        "crew_id": crew_id,
     }
 
     def fail(message: str):
@@ -528,6 +541,7 @@ async def update_event(
                 connected=conn is not None,
                 error=message,
                 job_timer=_job_timer_for_uid(db, user.id, uid),
+                crews=crews,
             ),
         )
 
@@ -550,6 +564,21 @@ async def update_event(
         linked = get_customer_by_calendar_uid(db, user.id, uid)
         if linked:
             cid = linked.id
+
+    selected_crew_id = int(crew_id) if crew_id.strip().isdigit() else None
+    estimate = None
+    if selected_crew_id:
+        if ticket is None or ticket <= 0:
+            return fail("Enter a job price to assign a crew.")
+        crew = get_crew(db, user.id, selected_crew_id)
+        if not crew:
+            return fail("Selected crew not found.")
+        try:
+            customer = get_customer(db, user.id, cid) if cid else None
+            estimate = resolve_duration(db, user.id, crew, ticket, customer)
+            end = start + timedelta(minutes=estimate.minutes)
+        except DurationError as exc:
+            return fail(str(exc))
 
     try:
         await update_event_for_user(
@@ -577,7 +606,26 @@ async def update_event(
             calendar_event_uid=uid,
             next_service_due=start.date(),
         )
+        if selected_crew_id and estimate is not None and ticket is not None:
+            upsert_booking_for_calendar_event(
+                db,
+                user.id,
+                calendar_event_uid=uid,
+                crew_id=selected_crew_id,
+                customer_id=cid,
+                price=ticket,
+                starts_at=start,
+                ends_at=end,
+                duration_minutes=estimate.minutes,
+                duration_source=estimate.source,
+                notes=free_note or None,
+            )
+        elif not selected_crew_id and crews:
+            # Crew picker was shown and left blank — drop the linked booking.
+            cancel_booking_for_calendar_event(db, user.id, uid)
     except (CalendarWriteError, CalendarFetchError) as exc:
+        return fail(str(exc))
+    except BookingError as exc:
         return fail(str(exc))
 
     return RedirectResponse("/events?saved=1", status_code=303)

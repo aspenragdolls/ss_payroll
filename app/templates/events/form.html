@@ -329,6 +329,7 @@
     let endManual = false;
 
     function snapshotForm() {
+      const crewSelect = document.getElementById("crew_id");
       return {
         customer_id: (customerId.value || "").trim(),
         customer_name: (nameInput.value || "").trim(),
@@ -340,6 +341,7 @@
         free_note: (freeNote.value || "").trim(),
         starts_at: startsAt.value || "",
         ends_at: endsAt.value || "",
+        crew_id: crewSelect ? (crewSelect.value || "") : "",
       };
     }
 
